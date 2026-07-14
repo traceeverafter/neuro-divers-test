@@ -3769,6 +3769,29 @@
       state.combatReturnRequested = true;
     }
 
+    function sendMobileKey(code) {
+      const eventInit = { code, key: keyForCode(code), bubbles: true, cancelable: true };
+      if (state.combatOpen && !state.pendingCombatResult) {
+        combatFrame.focus();
+        combatFrame.contentWindow?.focus();
+        combatFrame.contentWindow?.dispatchEvent(new KeyboardEvent("keydown", eventInit));
+        return;
+      }
+      window.dispatchEvent(new KeyboardEvent("keydown", eventInit));
+    }
+
+    function keyForCode(code) {
+      return {
+        ArrowUp: "ArrowUp",
+        ArrowDown: "ArrowDown",
+        ArrowLeft: "ArrowLeft",
+        ArrowRight: "ArrowRight",
+        Space: " ",
+        KeyP: "p",
+        KeyB: "b"
+      }[code] || code;
+    }
+
     window.addEventListener("keydown", event => {
       if (event.target === runnerNameInput) {
         if (event.code === "Enter") {
@@ -3885,11 +3908,7 @@
       button.addEventListener("pointerdown", event => {
         event.preventDefault();
         getAudioContext();
-        window.dispatchEvent(new KeyboardEvent("keydown", {
-          code: button.dataset.mobileKey,
-          bubbles: true,
-          cancelable: true
-        }));
+        sendMobileKey(button.dataset.mobileKey);
       });
     });
     renderTitleMenu();
