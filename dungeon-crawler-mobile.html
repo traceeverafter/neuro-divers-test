@@ -3870,6 +3870,11 @@
       event.preventDefault();
       finishCombatPopup();
     });
+    combatOverlay.addEventListener("pointerdown", event => {
+      if (!state.pendingCombatResult) return;
+      event.preventDefault();
+      finishCombatPopup();
+    });
     combatFrame.addEventListener("load", focusCombatFrame);
     mobilePauseButton.addEventListener("click", () => {
       if (state.mode !== "playing" || state.combatOpen || state.encounterPending || state.showMap || state.gameOver) return;
