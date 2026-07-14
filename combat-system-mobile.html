@@ -31,8 +31,11 @@
       margin: 0;
       min-height: 100vh;
       overflow: hidden;
+      overscroll-behavior: none;
       font-family: system-ui, -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Yu Gothic", sans-serif;
       color: var(--ink);
+      touch-action: none;
+      user-select: none;
       background:
         radial-gradient(circle at 15% 10%, rgba(63, 146, 255, .18), transparent 28%),
         radial-gradient(circle at 85% 18%, rgba(255, 74, 50, .12), transparent 24%),
@@ -854,6 +857,8 @@
       font-weight: 900;
       cursor: pointer;
       transition: transform .12s ease, border-color .12s ease, background .12s ease;
+      touch-action: manipulation;
+      user-select: none;
     }
 
     button:hover:not(:disabled) {
@@ -3723,6 +3728,73 @@
       if (event.code === "ArrowUp") moveCommandSelection(-1);
       if (event.code === "ArrowDown") moveCommandSelection(1);
       if (event.code === "ArrowRight") runSelectedCommand();
+    });
+
+    const swipeState = {
+      active: false,
+      pointerId: null,
+      x: 0,
+      y: 0,
+      startedAt: 0
+    };
+
+    function shouldHandleSwipe(event) {
+      if (event.pointerType === "mouse") return false;
+      if (event.target.closest("button, input, select, textarea, a")) return false;
+      return true;
+    }
+
+    function swipeToKey(dx, dy) {
+      const distance = Math.hypot(dx, dy);
+      if (distance < 34) return "";
+      if (Math.abs(dx) > Math.abs(dy)) {
+        return dx > 0 ? "ArrowRight" : "ArrowLeft";
+      }
+      return dy > 0 ? "ArrowDown" : "ArrowUp";
+    }
+
+    function dispatchSwipeKey(code) {
+      if (!code) return;
+      window.dispatchEvent(new KeyboardEvent("keydown", {
+        code,
+        key: {
+          ArrowUp: "ArrowUp",
+          ArrowDown: "ArrowDown",
+          ArrowLeft: "ArrowLeft",
+          ArrowRight: "ArrowRight"
+        }[code] || code,
+        bubbles: true,
+        cancelable: true
+      }));
+    }
+
+    window.addEventListener("pointerdown", event => {
+      if (!shouldHandleSwipe(event)) return;
+      swipeState.active = true;
+      swipeState.pointerId = event.pointerId;
+      swipeState.x = event.clientX;
+      swipeState.y = event.clientY;
+      swipeState.startedAt = performance.now();
+    }, { passive: true });
+
+    window.addEventListener("pointerup", event => {
+      if (!swipeState.active || event.pointerId !== swipeState.pointerId) return;
+      const dx = event.clientX - swipeState.x;
+      const dy = event.clientY - swipeState.y;
+      const elapsed = performance.now() - swipeState.startedAt;
+      swipeState.active = false;
+      swipeState.pointerId = null;
+      if (elapsed > 900) return;
+      const code = swipeToKey(dx, dy);
+      if (!code) return;
+      event.preventDefault();
+      getAudioContext();
+      dispatchSwipeKey(code);
+    }, { passive: false });
+
+    window.addEventListener("pointercancel", () => {
+      swipeState.active = false;
+      swipeState.pointerId = null;
     });
 
     elements.backButton.addEventListener("click", () => {
