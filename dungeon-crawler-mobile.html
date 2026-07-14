@@ -44,20 +44,19 @@
 
     .mobile-controls {
       position: fixed;
-      left: 50%;
-      bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+      right: calc(18px + env(safe-area-inset-right, 0px));
+      bottom: calc(18px + env(safe-area-inset-bottom, 0px));
       z-index: 20;
       display: grid;
-      grid-template-columns: repeat(4, 58px);
-      grid-template-rows: repeat(3, 46px);
-      gap: 7px;
-      transform: translateX(-50%);
+      grid-template-columns: repeat(3, 64px);
+      grid-template-rows: repeat(4, 50px);
+      gap: 8px;
       pointer-events: auto;
     }
 
     .mobile-controls button {
       border: 1px solid rgba(0, 229, 255, .58);
-      border-radius: 9px;
+      border-radius: 10px;
       background: rgba(5, 11, 18, .78);
       color: #edf8ff;
       font: 900 13px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
@@ -71,9 +70,9 @@
     .mobile-controls .left { grid-column: 1; grid-row: 2; }
     .mobile-controls .down { grid-column: 2; grid-row: 2; }
     .mobile-controls .right { grid-column: 3; grid-row: 2; }
-    .mobile-controls .map { grid-column: 4; grid-row: 1; }
-    .mobile-controls .menu { grid-column: 4; grid-row: 2; }
-    .mobile-controls .buy { grid-column: 1 / span 4; grid-row: 3; }
+    .mobile-controls .map { grid-column: 1; grid-row: 3; }
+    .mobile-controls .menu { grid-column: 2; grid-row: 3; }
+    .mobile-controls .buy { grid-column: 1 / span 3; grid-row: 4; }
 
     .combat-overlay {
       position: fixed;
@@ -92,8 +91,8 @@
 
     .combat-popup {
       position: relative;
-      width: min(420px, calc(100vw - 12px));
-      height: min(820px, calc(100vh - 12px));
+      width: min(1080px, calc(100vw - 18px));
+      height: min(720px, calc(100vh - 18px));
       border: 0;
       border-radius: 8px;
       overflow: hidden;
@@ -1158,8 +1157,8 @@
   <div class="trap-flash" id="trapFlash" aria-hidden="true"></div>
 
   <script>
-    const GAME_W = 390;
-    const GAME_H = 844;
+    const GAME_W = 1024;
+    const GAME_H = 768;
     const MAP_W = 41;
     const MAP_H = 41;
     const START_X = 1;
@@ -2872,8 +2871,7 @@
     }
 
     function dungeonViewRect(w, h) {
-      const margin = 12;
-      return { x: margin, y: 28, w: w - margin * 2, h: 360 };
+      return { x: 34, y: 28, w: 760, h: 420 };
     }
 
     function drawView(w, h) {
@@ -3078,27 +3076,29 @@
     }
 
     function drawHud(w, h) {
-      const panelW = w - 24;
+      const panelW = 760;
       const panel = {
-        x: (w - panelW) / 2,
-        y: 552,
+        x: 34,
+        y: 622,
         w: panelW,
-        h: 132
+        h: 112
       };
       roundRect(panel, colors.panel, colors.panelBorder, 2, 8);
       const gap = 8;
       const inner = {
-        x: panel.x + 10,
-        y: panel.y + 10,
-        w: panel.w - 20,
-        h: panel.h - 20
+        x: panel.x + 14,
+        y: panel.y + 14,
+        w: panel.w - 28,
+        h: panel.h - 28
       };
-      const topH = 58;
-      const bottomH = inner.h - topH - gap;
-      const diver = { x: inner.x, y: inner.y, w: 116, h: topH };
-      const resource = { x: diver.x + diver.w + gap, y: inner.y, w: inner.w - diver.w - gap, h: topH };
-      const ability = { x: inner.x, y: inner.y + topH + gap, w: inner.w * 0.58 - gap / 2, h: bottomH };
-      const gear = { x: ability.x + ability.w + gap, y: ability.y, w: inner.w - ability.w - gap, h: bottomH };
+      const diverW = 112;
+      const abilityW = 264;
+      const gearW = 214;
+      const resourceW = inner.w - diverW - abilityW - gearW - gap * 3;
+      const diver = { x: inner.x, y: inner.y, w: diverW, h: inner.h };
+      const ability = { x: diver.x + diver.w + gap, y: inner.y, w: abilityW, h: inner.h };
+      const gear = { x: ability.x + ability.w + gap, y: inner.y, w: gearW, h: inner.h };
+      const resource = { x: gear.x + gear.w + gap, y: inner.y, w: resourceW, h: inner.h };
 
       drawDungeonInfoSection(diver);
       drawStatusSection(ability, "ABILITY", [
@@ -3120,12 +3120,12 @@
 
     function drawLogPanel(w, h) {
       const logH = 112;
-      const totalW = w - 24;
-      const gap = 8;
+      const totalW = 760;
+      const gap = 10;
       const portrait = {
-        x: (w - totalW) / 2,
-        y: 428,
-        w: 86,
+        x: 34,
+        y: 492,
+        w: logH,
         h: logH
       };
       const panel = {
@@ -3139,7 +3139,7 @@
       text("LOG", panel.x + 16, panel.y + 22, 12, colors.muted, "850");
       const logs = state.log.length > 0 ? state.log.slice(0, 3) : ["No events yet."];
       logs.forEach((entry, index) => {
-        text(truncateText(entry, 25), panel.x + 14, panel.y + 48 + index * 23, 13, colors.line, "650");
+        text(truncateText(entry, 58), panel.x + 16, panel.y + 48 + index * 24, 15, colors.line, "650");
       });
     }
 
@@ -3188,14 +3188,14 @@
       ctx.textAlign = "center";
       ctx.shadowColor = accent;
       ctx.shadowBlur = 14;
-      text(dir.short, viewCenterX, viewTopY + 30, 30, accent, "900");
+      text(dir.short, viewCenterX, viewTopY + 34, 34, accent, "900");
       ctx.restore();
     }
 
     function drawDungeonInfoSection(r) {
       drawHudSectionFrame(r, "DIVER");
-      text(`B${state.floor}F`, r.x + 10, r.y + 34, 22, colors.line, "900");
-      drawMiniPotionPanel(r.x + 8, r.y + 40);
+      text(`B${state.floor}F`, r.x + 12, r.y + 39, 26, colors.line, "900");
+      drawMiniPotionPanel(r.x + 6, r.y + 50);
     }
 
     function drawMiniPotionPanel(x, y) {
@@ -3240,8 +3240,8 @@
           ctx.stroke();
           ctx.restore();
         }
-        text(label === "JAMMER" ? "JAM" : label, px, contentY + 9, 9, color, "850");
-        text(String(value), px, contentY + contentH - 1, 20, color, "900");
+        text(label === "JAMMER" ? "JAM" : label, px, contentY + 10, 10, color, "850");
+        text(String(value), px, contentY + contentH - 2, 22, color, "900");
       });
     }
 
