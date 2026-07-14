@@ -45,39 +45,6 @@
       background: var(--bg);
     }
 
-    .mobile-controls {
-      position: fixed;
-      right: calc(18px + env(safe-area-inset-right, 0px));
-      bottom: calc(18px + env(safe-area-inset-bottom, 0px));
-      z-index: 20;
-      display: grid;
-      grid-template-columns: repeat(3, 64px);
-      grid-template-rows: repeat(4, 50px);
-      gap: 8px;
-      pointer-events: auto;
-    }
-
-    .mobile-controls button {
-      border: 1px solid rgba(0, 229, 255, .58);
-      border-radius: 10px;
-      background: rgba(5, 11, 18, .78);
-      color: #edf8ff;
-      font: 900 13px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-      box-shadow:
-        0 0 14px rgba(0, 229, 255, .16),
-        inset 0 0 10px rgba(0, 229, 255, .08);
-      touch-action: manipulation;
-      user-select: none;
-    }
-
-    .mobile-controls .up { grid-column: 2; grid-row: 1; }
-    .mobile-controls .left { grid-column: 1; grid-row: 2; }
-    .mobile-controls .down { grid-column: 2; grid-row: 2; }
-    .mobile-controls .right { grid-column: 3; grid-row: 2; }
-    .mobile-controls .map { grid-column: 1; grid-row: 3; }
-    .mobile-controls .menu { grid-column: 2; grid-row: 3; }
-    .mobile-controls .buy { grid-column: 1 / span 3; grid-row: 4; }
-
     .combat-overlay {
       position: fixed;
       inset: 0;
@@ -1091,15 +1058,6 @@
 </head>
 <body>
   <canvas id="game" aria-label="NEURO DIVERS Mobile" tabindex="0"></canvas>
-  <div class="mobile-controls" aria-label="mobile controls">
-    <button class="up" type="button" data-mobile-key="ArrowUp">▲</button>
-    <button class="left" type="button" data-mobile-key="ArrowLeft">◀</button>
-    <button class="down" type="button" data-mobile-key="ArrowDown">▼</button>
-    <button class="right" type="button" data-mobile-key="ArrowRight">▶</button>
-    <button class="map" type="button" data-mobile-key="Space">MAP</button>
-    <button class="menu" type="button" data-mobile-key="KeyP">MENU</button>
-    <button class="buy" type="button" data-mobile-key="KeyB">POTION</button>
-  </div>
   <div class="screen-overlay active" id="titleOverlay" aria-hidden="false">
     <div class="menu-panel">
       <h1 class="title-logo" aria-label="NEURO DIVERS">
@@ -3908,14 +3866,6 @@
       if (button.dataset.dojoService === "radar") toggleMap();
       renderPauseMenu();
     });
-    document.querySelectorAll("[data-mobile-key]").forEach(button => {
-      button.addEventListener("pointerdown", event => {
-        event.preventDefault();
-        getAudioContext();
-        sendMobileKey(button.dataset.mobileKey);
-      });
-    });
-
     const swipeState = {
       active: false,
       pointerId: null,
