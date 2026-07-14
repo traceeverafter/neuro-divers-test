@@ -48,16 +48,16 @@
       bottom: calc(10px + env(safe-area-inset-bottom, 0px));
       z-index: 20;
       display: grid;
-      grid-template-columns: repeat(5, 54px);
-      grid-template-rows: repeat(2, 48px);
-      gap: 8px;
+      grid-template-columns: repeat(4, 58px);
+      grid-template-rows: repeat(3, 46px);
+      gap: 7px;
       transform: translateX(-50%);
       pointer-events: auto;
     }
 
     .mobile-controls button {
       border: 1px solid rgba(0, 229, 255, .58);
-      border-radius: 10px;
+      border-radius: 9px;
       background: rgba(5, 11, 18, .78);
       color: #edf8ff;
       font: 900 13px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
@@ -72,8 +72,8 @@
     .mobile-controls .down { grid-column: 2; grid-row: 2; }
     .mobile-controls .right { grid-column: 3; grid-row: 2; }
     .mobile-controls .map { grid-column: 4; grid-row: 1; }
-    .mobile-controls .menu { grid-column: 5; grid-row: 1; }
-    .mobile-controls .buy { grid-column: 4 / span 2; grid-row: 2; }
+    .mobile-controls .menu { grid-column: 4; grid-row: 2; }
+    .mobile-controls .buy { grid-column: 1 / span 4; grid-row: 3; }
 
     .combat-overlay {
       position: fixed;
@@ -92,8 +92,8 @@
 
     .combat-popup {
       position: relative;
-      width: min(1180px, 96vw);
-      height: min(700px, calc(100vh - 32px));
+      width: min(420px, calc(100vw - 12px));
+      height: min(820px, calc(100vh - 12px));
       border: 0;
       border-radius: 8px;
       overflow: hidden;
@@ -1158,8 +1158,8 @@
   <div class="trap-flash" id="trapFlash" aria-hidden="true"></div>
 
   <script>
-    const GAME_W = 1200;
-    const GAME_H = 900;
+    const GAME_W = 390;
+    const GAME_H = 844;
     const MAP_W = 41;
     const MAP_H = 41;
     const START_X = 1;
@@ -2872,8 +2872,8 @@
     }
 
     function dungeonViewRect(w, h) {
-      const viewW = w * 0.75;
-      return { x: (w - viewW) / 2, y: h * 0.05, w: viewW, h: h * 0.52 };
+      const margin = 12;
+      return { x: margin, y: 28, w: w - margin * 2, h: 360 };
     }
 
     function drawView(w, h) {
@@ -3078,29 +3078,27 @@
     }
 
     function drawHud(w, h) {
-      const panelW = Math.min(860, w - 80);
+      const panelW = w - 24;
       const panel = {
         x: (w - panelW) / 2,
-        y: h - 150,
+        y: 552,
         w: panelW,
-        h: 110
+        h: 132
       };
       roundRect(panel, colors.panel, colors.panelBorder, 2, 8);
       const gap = 8;
       const inner = {
-        x: panel.x + 14,
-        y: panel.y + 14,
-        w: panel.w - 28,
-        h: panel.h - 28
+        x: panel.x + 10,
+        y: panel.y + 10,
+        w: panel.w - 20,
+        h: panel.h - 20
       };
-      const diverW = 116;
-      const abilityW = 288;
-      const gearW = 240;
-      const resourceW = inner.w - diverW - abilityW - gearW - gap * 3;
-      const diver = { x: inner.x, y: inner.y, w: diverW, h: inner.h };
-      const ability = { x: diver.x + diver.w + gap, y: inner.y, w: abilityW, h: inner.h };
-      const gear = { x: ability.x + ability.w + gap, y: inner.y, w: gearW, h: inner.h };
-      const resource = { x: gear.x + gear.w + gap, y: inner.y, w: resourceW, h: inner.h };
+      const topH = 58;
+      const bottomH = inner.h - topH - gap;
+      const diver = { x: inner.x, y: inner.y, w: 116, h: topH };
+      const resource = { x: diver.x + diver.w + gap, y: inner.y, w: inner.w - diver.w - gap, h: topH };
+      const ability = { x: inner.x, y: inner.y + topH + gap, w: inner.w * 0.58 - gap / 2, h: bottomH };
+      const gear = { x: ability.x + ability.w + gap, y: ability.y, w: inner.w - ability.w - gap, h: bottomH };
 
       drawDungeonInfoSection(diver);
       drawStatusSection(ability, "ABILITY", [
@@ -3121,17 +3119,17 @@
     }
 
     function drawLogPanel(w, h) {
-      const logH = 116;
-      const totalW = Math.min(860, w - 80);
-      const gap = 10;
+      const logH = 112;
+      const totalW = w - 24;
+      const gap = 8;
       const portrait = {
         x: (w - totalW) / 2,
-        y: h - 274,
-        w: logH,
+        y: 428,
+        w: 86,
         h: logH
       };
       const panel = {
-        x: portrait.x + portrait.w + 10,
+        x: portrait.x + portrait.w + gap,
         y: portrait.y,
         w: Math.max(220, totalW - portrait.w - gap),
         h: logH
@@ -3141,8 +3139,12 @@
       text("LOG", panel.x + 16, panel.y + 22, 12, colors.muted, "850");
       const logs = state.log.length > 0 ? state.log.slice(0, 3) : ["No events yet."];
       logs.forEach((entry, index) => {
-        text(entry, panel.x + 16, panel.y + 48 + index * 24, 15, colors.line, "650");
+        text(truncateText(entry, 25), panel.x + 14, panel.y + 48 + index * 23, 13, colors.line, "650");
       });
+    }
+
+    function truncateText(value, maxChars) {
+      return value.length > maxChars ? `${value.slice(0, maxChars - 1)}…` : value;
     }
 
     function drawDungeonPortrait(r) {
@@ -3186,14 +3188,39 @@
       ctx.textAlign = "center";
       ctx.shadowColor = accent;
       ctx.shadowBlur = 14;
-      text(dir.short, viewCenterX, viewTopY + 34, 34, accent, "900");
+      text(dir.short, viewCenterX, viewTopY + 30, 30, accent, "900");
       ctx.restore();
     }
 
     function drawDungeonInfoSection(r) {
       drawHudSectionFrame(r, "DIVER");
-      text(`B${state.floor}F`, r.x + 12, r.y + 40, 26, colors.line, "900");
-      drawPotionPanel(r.x + 2, r.y + 50);
+      text(`B${state.floor}F`, r.x + 10, r.y + 34, 22, colors.line, "900");
+      drawMiniPotionPanel(r.x + 8, r.y + 40);
+    }
+
+    function drawMiniPotionPanel(x, y) {
+      const dotW = 5;
+      const dotH = 9;
+      const gap = 2;
+      const padX = 6;
+      const padY = 4;
+      const panel = {
+        x,
+        y,
+        w: padX * 2 + MAX_POTIONS * dotW + (MAX_POTIONS - 1) * gap,
+        h: padY * 2 + dotH
+      };
+      roundRect(panel, "rgba(92, 62, 14, 0.3)", "rgba(240, 196, 65, 0.42)", 1, 6);
+      for (let index = 0; index < MAX_POTIONS; index += 1) {
+        const active = index < state.potions;
+        const dot = {
+          x: panel.x + padX + index * (dotW + gap),
+          y: panel.y + padY,
+          w: dotW,
+          h: dotH
+        };
+        roundRect(dot, active ? colors.potionActive : "rgba(240, 196, 65, 0.08)", active ? "rgba(255, 220, 138, 0.8)" : "rgba(240, 196, 65, 0.22)", 1, 4);
+      }
     }
 
     function drawStatusSection(r, title, entries) {
@@ -3202,7 +3229,7 @@
       const contentH = r.h - 34;
       const segment = r.w / entries.length;
       entries.forEach(([label, value, color], index) => {
-        const px = r.x + index * segment + 10;
+        const px = r.x + index * segment + 8;
         if (index > 0) {
           ctx.save();
           ctx.strokeStyle = "rgba(154, 168, 189, 0.18)";
@@ -3213,8 +3240,8 @@
           ctx.stroke();
           ctx.restore();
         }
-        text(label, px, contentY + 10, 10, color, "850");
-        text(String(value), px, contentY + contentH - 2, 22, color, "900");
+        text(label === "JAMMER" ? "JAM" : label, px, contentY + 9, 9, color, "850");
+        text(String(value), px, contentY + contentH - 1, 20, color, "900");
       });
     }
 
