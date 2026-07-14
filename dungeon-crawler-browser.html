@@ -1,0 +1,3819 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Dungeon Crawler</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #050505;
+      --line: #f2f2f2;
+      --wall: #565656;
+      --muted: #a7a7a7;
+      --red: #e33535;
+      --green: #38d26e;
+      --blue: #4c8cff;
+      --gold: #f0c441;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      overflow: hidden;
+      background: var(--bg);
+      color: var(--line);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+
+    body {
+      display: grid;
+      place-items: center;
+    }
+
+    canvas {
+      display: block;
+      background: var(--bg);
+    }
+
+    .combat-overlay {
+      position: fixed;
+      inset: 0;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      background: rgba(0, 0, 0, .78);
+      z-index: 10;
+    }
+
+    .combat-overlay.active {
+      display: flex;
+    }
+
+    .combat-popup {
+      position: relative;
+      width: min(1180px, 96vw);
+      height: min(700px, calc(100vh - 32px));
+      border: 0;
+      border-radius: 8px;
+      overflow: hidden;
+      background: #05070b;
+      box-shadow: 0 24px 80px rgba(0, 0, 0, .62);
+    }
+
+    .combat-frame {
+      width: 100%;
+      height: 100%;
+      border: 0;
+      background: #05070b;
+    }
+
+    .combat-result {
+      position: absolute;
+      left: 50%;
+      top: 28px;
+      display: none;
+      align-items: center;
+      transform: translateX(-50%);
+      padding: 0;
+      border: 1px solid rgba(0, 229, 255, .76);
+      border-radius: 8px;
+      background: rgba(5, 11, 18, .9);
+      color: #f4f7fb;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Yu Gothic", sans-serif;
+      font-weight: 800;
+      box-shadow:
+        0 0 24px rgba(0, 229, 255, .24),
+        inset 0 0 18px rgba(0, 229, 255, .08);
+      white-space: nowrap;
+    }
+
+    .combat-result.active {
+      display: flex;
+    }
+
+    .combat-result button {
+      min-height: 34px;
+      padding: 0 22px;
+      border: 0;
+      border-radius: 8px;
+      background: transparent;
+      color: #f4f7fb;
+      font: inherit;
+      font-weight: 850;
+      cursor: pointer;
+      letter-spacing: 0;
+      text-shadow: 0 0 10px rgba(0, 229, 255, .6);
+    }
+
+    .combat-result span {
+      display: none;
+    }
+
+    .encounter-flash {
+      position: fixed;
+      left: 50vw;
+      top: 12vh;
+      z-index: 9;
+      display: none;
+      min-width: 260px;
+      transform: translateX(-50%);
+      padding: 12px 28px;
+      border: 1px solid rgba(210, 216, 224, .72);
+      border-radius: 8px;
+      background: rgba(3, 5, 10, .78);
+      color: #d8dde6;
+      font-size: clamp(18px, 2vw, 30px);
+      font-weight: 950;
+      letter-spacing: 0;
+      text-align: center;
+      text-shadow:
+        0 0 8px rgba(220, 226, 236, .72),
+        0 0 18px rgba(120, 132, 148, .58);
+      box-shadow:
+        0 0 24px rgba(180, 190, 204, .24),
+        inset 0 0 18px rgba(220, 226, 236, .08);
+      pointer-events: none;
+    }
+
+    .encounter-flash.active {
+      display: block;
+      animation: encounterPulse 1s ease-out both;
+    }
+
+    @keyframes encounterPulse {
+      0% { opacity: 0; transform: translateX(-50%) scale(.94); filter: blur(3px); }
+      20% { opacity: 1; transform: translateX(-50%) scale(1.02); filter: blur(0); }
+      100% { opacity: 0; transform: translateX(-50%) scale(1); filter: blur(1px); }
+    }
+
+    .trap-flash {
+      position: fixed;
+      inset: 0;
+      z-index: 9;
+      display: none;
+      pointer-events: none;
+      background:
+        radial-gradient(circle at 42.5% 31%, rgba(255, 255, 255, .82), transparent 12%),
+        radial-gradient(circle at 42.5% 31%, rgba(255, 77, 109, .42), transparent 34%),
+        rgba(255, 255, 255, .12);
+      mix-blend-mode: screen;
+    }
+
+    .trap-flash.active {
+      display: block;
+      animation: trapPulse .72s ease-out both;
+    }
+
+    @keyframes trapPulse {
+      0% { opacity: 0; }
+      12% { opacity: 1; }
+      38% { opacity: .45; }
+      100% { opacity: 0; }
+    }
+
+    .screen-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 8;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      background:
+        radial-gradient(circle at 50% 18%, rgba(0, 229, 255, .14), transparent 32%),
+        linear-gradient(180deg, rgba(0, 0, 0, .82), rgba(0, 0, 0, .94));
+      color: var(--line);
+    }
+
+    .screen-overlay.active {
+      display: flex;
+    }
+
+    .menu-panel {
+      display: grid;
+      grid-template-columns: minmax(280px, 420px) minmax(280px, 420px);
+      gap: 18px;
+      width: min(900px, 94vw);
+      padding: 18px;
+      border: 1px solid rgba(0, 229, 255, .45);
+      border-radius: 8px;
+      background:
+        linear-gradient(180deg, rgba(21, 29, 43, .92), rgba(5, 8, 12, .96));
+      box-shadow:
+        0 0 28px rgba(0, 229, 255, .12),
+        inset 0 0 22px rgba(0, 229, 255, .05);
+    }
+
+    #titleOverlay .menu-panel {
+      grid-template-columns: minmax(310px, 1fr) minmax(310px, 390px);
+      align-items: stretch;
+      width: min(960px, 94vw);
+    }
+
+    .menu-title {
+      margin: 0 0 10px;
+      color: #f0c441;
+      font-size: clamp(26px, 4vw, 42px);
+      line-height: 1;
+      letter-spacing: 0;
+    }
+
+    .menu-copy {
+      margin: 0 0 16px;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.55;
+    }
+
+    .title-logo {
+      display: block;
+      grid-column: 1 / -1;
+      width: min(760px, 100%);
+      margin: -10px auto -2px;
+      line-height: 0;
+    }
+
+    .title-logo::before,
+    .title-logo::after {
+      display: none;
+    }
+
+    .title-logo img {
+      display: block;
+      width: 100%;
+      height: auto;
+      filter: drop-shadow(0 0 16px rgba(0, 229, 255, .18));
+    }
+
+    #titleOverlay .character-card {
+      align-self: stretch;
+      display: grid;
+      grid-template-rows: minmax(270px, 1fr) auto auto;
+    }
+
+    #titleOverlay .title-controls {
+      align-self: stretch;
+      display: grid;
+      grid-template-rows: auto auto 1fr;
+    }
+
+    #titleOverlay .character-art {
+      height: 100%;
+      min-height: 292px;
+      margin-bottom: 12px;
+    }
+
+    .character-card {
+      min-height: 360px;
+      padding: 16px;
+      border: 1px solid rgba(240, 196, 65, .28);
+      border-radius: 8px;
+      background:
+        radial-gradient(circle at 50% 24%, rgba(76, 140, 255, .18), transparent 28%),
+        linear-gradient(180deg, rgba(10, 16, 24, .76), rgba(2, 2, 2, .84));
+    }
+
+    .character-art {
+      position: relative;
+      height: 230px;
+      margin-bottom: 14px;
+      overflow: hidden;
+      border: 1px solid rgba(0, 229, 255, .22);
+      border-radius: 8px;
+      background:
+        linear-gradient(90deg, rgba(255, 255, 255, .035) 1px, transparent 1px),
+        linear-gradient(0deg, rgba(255, 255, 255, .025) 1px, transparent 1px),
+        radial-gradient(circle at 50% 30%, rgba(0, 229, 255, .16), transparent 34%),
+        #020406;
+      background-size: 28px 28px, 28px 28px, auto, auto;
+    }
+
+    .character-art::before {
+      content: "";
+      position: absolute;
+      left: 50%;
+      bottom: 18px;
+      width: 116px;
+      height: 172px;
+      transform: translateX(-50%);
+      clip-path: polygon(42% 0, 58% 0, 68% 14%, 74% 44%, 92% 100%, 8% 100%, 26% 44%, 32% 14%);
+      background:
+        linear-gradient(135deg, rgba(255, 255, 255, .16), transparent 28%),
+        linear-gradient(180deg, #1d2637, #06080d 72%);
+      box-shadow: 0 0 28px rgba(0, 229, 255, .22);
+    }
+
+    .character-art::after {
+      content: "";
+      position: absolute;
+      left: 50%;
+      top: 28px;
+      width: 58px;
+      height: 58px;
+      transform: translateX(-50%);
+      border: 1px solid rgba(191, 231, 255, .52);
+      border-radius: 50%;
+      background: linear-gradient(180deg, #25324a, #080b12);
+      box-shadow: 0 0 18px rgba(0, 229, 255, .32);
+    }
+
+    #titleOverlay .character-art,
+    #pauseOverlay .character-art {
+      height: 260px;
+      border-color: rgba(240, 196, 65, .32);
+      background:
+        linear-gradient(180deg, rgba(0, 0, 0, .02), rgba(0, 0, 0, .28)),
+        var(--character-art-image, url("character-blade.png")) center 24% / cover no-repeat,
+        #020406;
+      box-shadow:
+        0 0 28px rgba(0, 229, 255, .12),
+        inset 0 0 28px rgba(0, 0, 0, .22);
+    }
+
+    #titleOverlay .character-art {
+      height: 100%;
+      min-height: 292px;
+      margin-bottom: 12px;
+    }
+
+    #titleOverlay .character-art::before,
+    #titleOverlay .character-art::after,
+    #pauseOverlay .character-art::before,
+    #pauseOverlay .character-art::after {
+      display: none;
+    }
+
+    .dojo-profile {
+      position: absolute;
+      left: 10px;
+      right: 10px;
+      bottom: 10px;
+      display: grid;
+      gap: 6px;
+      padding: 10px;
+      border: 1px solid rgba(240, 196, 65, .34);
+      border-radius: 8px;
+      background: linear-gradient(180deg, rgba(2, 4, 8, .28), rgba(2, 4, 8, .82));
+      backdrop-filter: blur(2px);
+    }
+
+    .dojo-profile-name {
+      color: #f4f7fb;
+      font-size: 18px;
+      font-weight: 950;
+      line-height: 1;
+      text-shadow: 0 0 10px rgba(0, 0, 0, .82);
+    }
+
+    .dojo-profile-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      color: #ffdc8a;
+      font-size: 11px;
+      font-weight: 850;
+    }
+
+    .dojo-profile-meta span {
+      padding: 3px 6px;
+      border: 1px solid rgba(240, 196, 65, .34);
+      border-radius: 999px;
+      background: rgba(0, 0, 0, .34);
+    }
+
+    .menu-stat-list {
+      display: grid;
+      gap: 7px;
+    }
+
+    .menu-stat {
+      display: grid;
+      grid-template-columns: 72px 1fr auto;
+      gap: 10px;
+      align-items: center;
+      min-height: 34px;
+      padding: 6px 8px;
+      border: 1px solid rgba(45, 58, 80, .9);
+      border-radius: 8px;
+      background: rgba(21, 29, 43, .7);
+    }
+
+    .menu-stat strong {
+      color: var(--line);
+      font-size: 13px;
+    }
+
+    .menu-stat span {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .menu-stat .value {
+      color: #43c383;
+      font-size: 18px;
+      font-weight: 900;
+    }
+
+    .portrait-select {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin: 0 0 10px;
+    }
+
+    .portrait-button {
+      display: grid;
+      grid-template-columns: 64px 1fr;
+      gap: 10px;
+      align-items: center;
+      min-height: 104px;
+      padding: 8px;
+      border: 1px solid rgba(45, 58, 80, .9);
+      border-radius: 8px;
+      background: rgba(21, 29, 43, .72);
+      color: var(--line);
+      font: inherit;
+      text-align: left;
+      cursor: pointer;
+    }
+
+    .portrait-button.selected {
+      border-color: rgba(240, 196, 65, .72);
+      background: rgba(92, 62, 14, .35);
+      box-shadow: 0 0 18px rgba(240, 196, 65, .16);
+    }
+
+    .portrait-thumb {
+      width: 64px;
+      height: 82px;
+      border: 1px solid rgba(240, 196, 65, .34);
+      border-radius: 7px;
+      background: var(--portrait-thumb) center 24% / cover no-repeat;
+    }
+
+    .portrait-label {
+      display: block;
+      color: #f4f7fb;
+      font-size: 12px;
+      font-weight: 900;
+      letter-spacing: .08em;
+    }
+
+    .portrait-stats {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 4px;
+      margin-top: 8px;
+    }
+
+    .portrait-stat {
+      min-width: 0;
+      padding: 4px 3px;
+      border: 1px solid rgba(0, 229, 255, .18);
+      border-radius: 6px;
+      background: rgba(1, 6, 10, .54);
+      text-align: center;
+    }
+
+    .portrait-stat strong,
+    .portrait-stat span {
+      display: block;
+      line-height: 1;
+    }
+
+    .portrait-stat strong {
+      color: var(--muted);
+      font-size: 9px;
+      font-weight: 850;
+    }
+
+    .portrait-stat span {
+      margin-top: 3px;
+      color: #43c383;
+      font-size: 13px;
+      font-weight: 950;
+    }
+
+    .dojo-list {
+      display: grid;
+      gap: 12px;
+    }
+
+    .dojo-section {
+      display: grid;
+      gap: 6px;
+      padding: 8px;
+      border: 1px solid rgba(45, 58, 80, .9);
+      border-radius: 8px;
+      background: rgba(5, 8, 12, .58);
+    }
+
+    .dojo-section h2 {
+      margin: 0 0 2px;
+      color: #ffdc8a;
+      font-size: 13px;
+      font-weight: 900;
+      letter-spacing: 0;
+    }
+
+    .dojo-button {
+      display: grid;
+      grid-template-columns: 64px 1fr auto;
+      gap: 8px;
+      align-items: center;
+      min-height: 34px;
+      padding: 6px 8px;
+      border: 1px solid rgba(0, 229, 255, .34);
+      border-radius: 8px;
+      background: rgba(0, 229, 255, .09);
+      color: var(--line);
+      font: inherit;
+      text-align: left;
+      cursor: pointer;
+      box-shadow:
+        0 0 14px rgba(0, 229, 255, .12),
+        inset 0 0 14px rgba(0, 229, 255, .04);
+    }
+
+    .dojo-button strong {
+      color: #f4f7fb;
+      font-size: 13px;
+      font-weight: 900;
+    }
+
+    .dojo-button span {
+      color: var(--muted);
+      font-size: 11px;
+      line-height: 1.25;
+    }
+
+    .dojo-button .dojo-cost {
+      color: #ffdc8a;
+      font-size: 12px;
+      font-weight: 900;
+      white-space: nowrap;
+    }
+
+    .dojo-complete {
+      grid-column: 2 / -1;
+      justify-self: start;
+      margin-top: -3px;
+      padding: 2px 7px;
+      border: 1px solid rgba(67, 195, 131, .52);
+      border-radius: 999px;
+      background: rgba(67, 195, 131, .14);
+      color: #8ce0b4;
+      font-size: 11px;
+      font-weight: 900;
+      line-height: 1.2;
+    }
+
+    .dojo-button:disabled {
+      border-color: rgba(75, 88, 108, .38);
+      background: rgba(18, 23, 32, .54);
+      color: rgba(232, 237, 247, .42);
+      cursor: default;
+      box-shadow: none;
+      opacity: .55;
+    }
+
+    .dojo-button:disabled strong,
+    .dojo-button:disabled span,
+    .dojo-button:disabled .dojo-cost,
+    .dojo-button:disabled .dojo-complete {
+      color: rgba(154, 168, 189, .62);
+    }
+
+    .dojo-status {
+      display: grid;
+      gap: 10px;
+    }
+
+    .dojo-status-strip {
+      display: grid;
+      grid-template-columns: 1.35fr 1fr;
+      gap: 6px;
+      padding: 8px;
+      border: 1px solid rgba(45, 58, 80, .9);
+      border-radius: 8px;
+      background: rgba(28, 39, 56, .86);
+    }
+
+    .dojo-status-group {
+      min-width: 0;
+      display: grid;
+      gap: 6px;
+      padding: 7px;
+      border: 1px solid rgba(45, 58, 80, .78);
+      border-radius: 8px;
+      background: rgba(8, 12, 18, .54);
+    }
+
+    .dojo-status-group-title {
+      color: var(--muted);
+      font-size: 10px;
+      font-weight: 900;
+      line-height: 1;
+      letter-spacing: .04em;
+    }
+
+    .dojo-status-group-grid {
+      display: grid;
+      grid-template-columns: repeat(var(--dojo-status-columns, 4), minmax(0, 1fr));
+      gap: 5px;
+    }
+
+    .dojo-status-cell {
+      min-width: 0;
+      padding: 6px 5px;
+      border: 1px solid rgba(45, 58, 80, .85);
+      border-radius: 8px;
+      background: rgba(8, 12, 18, .72);
+    }
+
+    .dojo-status-cell strong {
+      display: block;
+      margin-bottom: 5px;
+      color: #43c383;
+      font-size: 10px;
+      font-weight: 900;
+      line-height: 1;
+    }
+
+    .dojo-status-cell .value {
+      color: #43c383;
+      font-size: 20px;
+      font-weight: 950;
+      line-height: 1;
+    }
+
+    .dojo-status-cell.weapon strong,
+    .dojo-status-cell.weapon .value {
+      color: #f0c441;
+    }
+
+    .dojo-status-cell.hp strong,
+    .dojo-status-cell.hp .value {
+      color: #8ce0b4;
+    }
+
+    .dojo-services {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .dojo-service-button {
+      min-height: 52px;
+      padding: 8px;
+      border: 1px solid rgba(240, 196, 65, .38);
+      border-radius: 8px;
+      background: rgba(92, 62, 14, .22);
+      color: #ffdc8a;
+      font: inherit;
+      font-weight: 900;
+      text-align: left;
+      cursor: pointer;
+    }
+
+    .dojo-service-button span {
+      display: block;
+      margin-top: 4px;
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 750;
+    }
+
+    .dojo-service-button:disabled {
+      border-color: rgba(75, 88, 108, .38);
+      background: rgba(18, 23, 32, .54);
+      color: rgba(154, 168, 189, .62);
+      cursor: default;
+    }
+
+    .dojo-resources {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .dojo-resource-card {
+      min-height: 96px;
+      padding: 12px;
+      border: 1px solid rgba(45, 58, 80, .9);
+      border-radius: 8px;
+      background: rgba(8, 12, 18, .82);
+    }
+
+    .dojo-resource-card strong {
+      display: block;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 900;
+    }
+
+    .dojo-resource-card .value {
+      display: block;
+      margin-top: 10px;
+      color: #43c383;
+      font-size: 38px;
+      font-weight: 950;
+      line-height: 1;
+    }
+
+    .dojo-resource-card.credit .value {
+      color: #f0c441;
+    }
+
+    #pauseOverlay .menu-panel {
+      grid-template-columns: minmax(340px, 1fr) minmax(320px, 390px);
+      align-items: start;
+    }
+
+    #pauseOverlay .character-card {
+      min-height: 0;
+      padding: 14px;
+    }
+
+    .dojo-potion-bar {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      z-index: 2;
+      display: inline-grid;
+      grid-template-columns: repeat(10, 7px);
+      gap: 3px;
+      margin: 0;
+      padding: 6px 8px;
+      border: 1px solid rgba(240, 196, 65, .48);
+      border-radius: 8px;
+      background: rgba(92, 62, 14, .35);
+    }
+
+    .dojo-potion-dot {
+      width: 7px;
+      height: 15px;
+      border: 1px solid rgba(240, 196, 65, .3);
+      border-radius: 5px;
+      background: rgba(240, 196, 65, .08);
+    }
+
+    .dojo-potion-dot.active {
+      border-color: rgba(255, 220, 138, .85);
+      background: #ffdc8a;
+      box-shadow:
+        0 0 8px rgba(255, 220, 138, .8),
+        inset 0 0 6px rgba(255, 255, 255, .35);
+    }
+
+    #pauseOverlay .character-art {
+      height: 365px;
+      margin-bottom: 12px;
+    }
+
+    #pauseOverlay .menu-actions {
+      margin-top: 12px;
+    }
+
+    .title-confirm {
+      position: absolute;
+      inset: 0;
+      z-index: 2;
+      display: none;
+      place-items: center;
+      background: rgba(0, 0, 0, .54);
+      backdrop-filter: blur(2px);
+    }
+
+    .title-confirm.active {
+      display: grid;
+    }
+
+    .title-confirm-actions {
+      display: flex;
+      gap: 14px;
+      align-items: center;
+    }
+
+    .title-confirm button {
+      min-width: 160px;
+      min-height: 58px;
+      border: 1px solid rgba(240, 196, 65, .78);
+      border-radius: 8px;
+      background: rgba(92, 62, 14, .72);
+      color: #ffdc8a;
+      font: inherit;
+      font-size: 20px;
+      font-weight: 950;
+      text-transform: uppercase;
+      box-shadow: 0 0 24px rgba(240, 196, 65, .22);
+      cursor: pointer;
+    }
+
+    .title-confirm button.secondary {
+      border-color: rgba(0, 229, 255, .46);
+      background: rgba(5, 12, 18, .78);
+      color: var(--line);
+      box-shadow: 0 0 18px rgba(0, 229, 255, .14);
+    }
+
+    .custom-row {
+      display: grid;
+      grid-template-columns: 72px 1fr 88px;
+      gap: 10px;
+      align-items: center;
+      min-height: 46px;
+      padding: 8px;
+      border: 1px solid rgba(45, 58, 80, .9);
+      border-radius: 8px;
+      background: rgba(21, 29, 43, .72);
+    }
+
+    .custom-row strong {
+      font-size: 13px;
+    }
+
+    .custom-row span {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .name-field {
+      display: grid;
+      gap: 7px;
+      margin: 0 0 12px;
+      padding: 10px;
+      border: 1px solid rgba(45, 58, 80, .9);
+      border-radius: 8px;
+      background: rgba(21, 29, 43, .72);
+    }
+
+    .name-field label {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 850;
+    }
+
+    .name-field input {
+      width: 100%;
+      min-height: 38px;
+      border: 1px solid rgba(0, 229, 255, .38);
+      border-radius: 8px;
+      padding: 0 11px;
+      background: rgba(2, 6, 10, .86);
+      color: var(--line);
+      font: inherit;
+      font-weight: 900;
+      letter-spacing: 0;
+      outline: none;
+    }
+
+    .name-field input:focus {
+      border-color: rgba(240, 196, 65, .7);
+      box-shadow: 0 0 14px rgba(240, 196, 65, .14);
+    }
+
+    .stepper {
+      display: grid;
+      grid-template-columns: 30px 28px 30px;
+      gap: 4px;
+      align-items: center;
+      justify-content: end;
+    }
+
+    .stepper button,
+    .menu-actions button {
+      min-height: 34px;
+      border: 1px solid rgba(0, 229, 255, .42);
+      border-radius: 8px;
+      background: rgba(5, 12, 18, .84);
+      color: var(--line);
+      font: inherit;
+      font-weight: 900;
+      cursor: pointer;
+    }
+
+    .stepper output {
+      color: #f0c441;
+      font-weight: 900;
+      text-align: center;
+    }
+
+    .points-readout {
+      margin: 0 0 12px;
+      color: #43c383;
+      font-size: 15px;
+      font-weight: 900;
+    }
+
+    .menu-actions {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+      gap: 10px;
+      margin-top: 14px;
+    }
+
+    .menu-actions button.primary {
+      border-color: rgba(240, 196, 65, .58);
+      background: rgba(92, 62, 14, .45);
+      color: #ffdc8a;
+    }
+
+    .menu-actions button:disabled {
+      border-color: rgba(154, 168, 189, .22);
+      background: rgba(5, 12, 18, .45);
+      color: rgba(154, 168, 189, .42);
+      cursor: not-allowed;
+    }
+
+    .save-slot-list {
+      display: grid;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .save-slot {
+      display: grid;
+      grid-template-columns: 48px 1fr auto auto;
+      gap: 8px;
+      align-items: center;
+      padding: 8px;
+      border: 1px solid rgba(0, 229, 255, .24);
+      border-radius: 8px;
+      background: rgba(5, 12, 18, .66);
+      color: var(--line);
+      font-size: 12px;
+    }
+
+    .save-slot-portrait {
+      width: 48px;
+      height: 48px;
+      border: 1px solid rgba(0, 229, 255, .3);
+      border-radius: 7px;
+      background:
+        linear-gradient(180deg, rgba(0, 229, 255, .08), rgba(5, 12, 18, .42)),
+        var(--save-slot-portrait, none) center / cover no-repeat,
+        rgba(2, 8, 12, .8);
+      box-shadow: inset 0 0 12px rgba(0, 229, 255, .08);
+    }
+
+    .save-slot-portrait.empty {
+      background:
+        linear-gradient(135deg, rgba(0, 229, 255, .08), rgba(255, 220, 138, .04)),
+        rgba(2, 8, 12, .72);
+    }
+
+    .save-slot-main {
+      display: grid;
+      gap: 7px;
+    }
+
+    .save-slot strong {
+      display: block;
+      color: #ffdc8a;
+      font-size: 13px;
+    }
+
+    .save-slot-title {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: baseline;
+    }
+
+    .save-slot-title span {
+      color: #ffdc8a;
+      min-width: 0;
+    }
+
+    .save-slot-title time {
+      color: rgba(154, 168, 189, .72);
+      font-size: 10px;
+      white-space: nowrap;
+    }
+
+    .save-slot span {
+      color: var(--muted);
+    }
+
+    .save-slot .portrait-stats {
+      max-width: 280px;
+      margin-top: 0;
+    }
+
+    .save-slot .portrait-stat strong {
+      color: var(--muted);
+      font-size: 9px;
+    }
+
+    .save-slot .portrait-stat span {
+      color: #43c383;
+      font-size: 13px;
+    }
+
+    .save-slot button {
+      min-height: 30px;
+      border: 1px solid rgba(0, 229, 255, .35);
+      border-radius: 7px;
+      background: rgba(5, 12, 18, .84);
+      color: var(--line);
+      font: inherit;
+      font-weight: 900;
+      cursor: pointer;
+    }
+
+    .save-slot button.delete {
+      border-color: rgba(227, 53, 53, .45);
+      color: #ff9a8a;
+    }
+
+    .save-slot button:disabled {
+      color: rgba(154, 168, 189, .42);
+      cursor: not-allowed;
+    }
+
+    @media (max-width: 760px) {
+      .menu-panel {
+        grid-template-columns: 1fr;
+        max-height: 92vh;
+        overflow: auto;
+      }
+
+      .character-card {
+        min-height: 0;
+      }
+    }
+  </style>
+</head>
+<body>
+  <canvas id="game" aria-label="Dungeon Crawler" tabindex="0"></canvas>
+  <div class="screen-overlay active" id="titleOverlay" aria-hidden="false">
+    <div class="menu-panel">
+      <h1 class="title-logo" aria-label="NEURO DIVERS">
+        <img src="title-logo-neuro-divers-cutout.png" alt="NEURO DIVERS">
+      </h1>
+      <section class="title-controls">
+        <div class="portrait-select" id="portraitSelect"></div>
+        <div class="menu-actions">
+          <button class="primary" id="startGameButton" type="button">NEW GAME</button>
+          <button id="continueGameButton" type="button">CONTINUE</button>
+        </div>
+        <div class="save-slot-list" id="saveSlotList"></div>
+      </section>
+      <section class="character-card">
+        <div class="character-art" aria-hidden="true"></div>
+        <div class="name-field">
+          <label for="runnerNameInput">DIVER NAME</label>
+          <input id="runnerNameInput" type="text" maxlength="12" value="BLADE" autocomplete="off" spellcheck="false">
+        </div>
+        <div class="menu-stat-list" id="titleStatList"></div>
+      </section>
+    </div>
+  </div>
+  <div class="screen-overlay" id="pauseOverlay" aria-hidden="true">
+    <div class="menu-panel">
+      <section>
+        <h1 class="menu-title">SAFE HOUSE</h1>
+        <div class="menu-stat-list" id="pauseStatList"></div>
+      </section>
+      <section class="character-card">
+        <div class="character-art" aria-hidden="true">
+          <div class="dojo-potion-bar" id="dojoPotionBar"></div>
+          <div class="dojo-profile" id="dojoProfile"></div>
+        </div>
+        <div class="menu-stat-list" id="pauseResourceList"></div>
+        <div class="menu-actions">
+          <button class="primary" id="resumeButton" type="button">BACK</button>
+          <button id="pauseRestartButton" type="button">TITLE</button>
+        </div>
+      </section>
+    </div>
+    <div class="title-confirm" id="titleConfirm" aria-hidden="true">
+      <div class="title-confirm-actions">
+        <button id="titleConfirmButton" type="button">sure?</button>
+        <button class="secondary" id="titleCancelButton" type="button">no</button>
+      </div>
+    </div>
+  </div>
+  <div class="combat-overlay" id="combatOverlay" aria-hidden="true">
+    <div class="combat-popup">
+      <iframe class="combat-frame" id="combatFrame" title="コンバットシステム" tabindex="0"></iframe>
+      <div class="combat-result" id="combatResult">
+        <span id="combatResultText">戦闘終了</span>
+        <button id="combatContinueButton" type="button">BACK</button>
+      </div>
+    </div>
+  </div>
+  <div class="encounter-flash" id="encounterFlash" aria-hidden="true">ENCOUNTER</div>
+  <div class="trap-flash" id="trapFlash" aria-hidden="true"></div>
+
+  <script>
+    const GAME_W = 1200;
+    const GAME_H = 900;
+    const MAP_W = 41;
+    const MAP_H = 41;
+    const START_X = 1;
+    const START_Y = 1;
+    const WALL = 1;
+    const FLOOR = 0;
+    const ENCOUNTER_RATE = 0.10;
+    const LOOP_CONNECTION_RATE = 0.14;
+    const POTION_PRICE = 50;
+    const MAX_POTIONS = 10;
+    const MAP_PRICE = 100;
+    const SKILL_EXP_COSTS = [500, 750, 1000];
+    const MAX_SKILL_LEVEL = 3;
+    const MAX_WEAPON_LEVEL = 7;
+    const STAT_CAP = 30;
+    const WARP_TILE_COUNT = 2;
+    const TRAP_TILE_COUNT = 3;
+    const TRAP_DEBUFF_BATTLES = 3;
+    const DEFAULT_PLAYER_NAME = "BLADE";
+    const SAVE_KEY = "neuro-divers-save-v1";
+    const SAVE_SLOT_COUNT = 3;
+    const MELEE_WEAPON_NAME = "COMBAT KNIFE";
+    const SHOOTING_WEAPON_NAME = "HANDGUN";
+    const MELEE_WEAPON_BASE_DAMAGE = 2;
+    const SHOOTING_WEAPON_BASE_DAMAGE = 2;
+    const REWARD_BY_ENEMY_STRENGTH = {
+      weak: { label: "弱い", exp: 7, credits: 10 },
+      even: { label: "同程度", exp: 12, credits: 17 },
+      strong: { label: "強い", exp: 21, credits: 31 },
+      boss: { label: "ボス", exp: 33, credits: 50 }
+    };
+
+    const canvas = document.querySelector("#game");
+    const ctx = canvas.getContext("2d");
+    const scanlinePatternCache = new Map();
+    const combatOverlay = document.querySelector("#combatOverlay");
+    const combatFrame = document.querySelector("#combatFrame");
+    const combatResult = document.querySelector("#combatResult");
+    const combatResultText = document.querySelector("#combatResultText");
+    const combatContinueButton = document.querySelector("#combatContinueButton");
+    const encounterFlash = document.querySelector("#encounterFlash");
+    const trapFlash = document.querySelector("#trapFlash");
+    const titleOverlay = document.querySelector("#titleOverlay");
+    const pauseOverlay = document.querySelector("#pauseOverlay");
+    const runnerNameInput = document.querySelector("#runnerNameInput");
+    const portraitSelect = document.querySelector("#portraitSelect");
+    const saveSlotList = document.querySelector("#saveSlotList");
+    const dojoProfile = document.querySelector("#dojoProfile");
+    const dojoPotionBar = document.querySelector("#dojoPotionBar");
+    const titleStatList = document.querySelector("#titleStatList");
+    const pauseStatList = document.querySelector("#pauseStatList");
+    const pauseResourceList = document.querySelector("#pauseResourceList");
+    const startGameButton = document.querySelector("#startGameButton");
+    const continueGameButton = document.querySelector("#continueGameButton");
+    const resumeButton = document.querySelector("#resumeButton");
+    const pauseRestartButton = document.querySelector("#pauseRestartButton");
+    const titleConfirm = document.querySelector("#titleConfirm");
+    const titleConfirmButton = document.querySelector("#titleConfirmButton");
+    const titleCancelButton = document.querySelector("#titleCancelButton");
+    const characterImageCache = new Map();
+
+    const BASE_STATS = {
+      meleeSkill: 10,
+      shootingSkill: 10,
+      agility: 10,
+      toughness: 10
+    };
+    const STAT_CONFIG = [
+      { key: "meleeSkill", short: "MEL", label: "近接" },
+      { key: "shootingSkill", short: "SHOT", label: "射撃" },
+      { key: "agility", short: "AGI", label: "敏捷" },
+      { key: "toughness", short: "TOU", label: "頑強" }
+    ];
+    const ARCHETYPES = [
+      {
+        key: "blade",
+        label: "BLADE",
+        defaultName: "BLADE",
+        note: "MEL +6 / TOU +2 / AGI +2",
+        file: "character-blade.png",
+        bonus: { meleeSkill: 6, shootingSkill: 0, agility: 2, toughness: 2 }
+      },
+      {
+        key: "shooter",
+        label: "GUNNER",
+        defaultName: "GUNNER",
+        note: "SHOT +6 / AGI +3 / TOU +1",
+        file: "character-gunner.png",
+        bonus: { meleeSkill: 0, shootingSkill: 6, agility: 3, toughness: 1 }
+      },
+      {
+        key: "ghost",
+        label: "GHOST",
+        defaultName: "GHOST",
+        note: "AGI +6 / MEL +2 / SHOT +2",
+        file: "character-ghost.png",
+        bonus: { meleeSkill: 2, shootingSkill: 2, agility: 6, toughness: 0 }
+      },
+      {
+        key: "guard",
+        label: "ANCHOR",
+        defaultName: "ANCHOR",
+        note: "TOU +6 / MEL +2 / SHOT +1 / AGI +1",
+        file: "character-anchor.png",
+        bonus: { meleeSkill: 2, shootingSkill: 1, agility: 1, toughness: 6 }
+      }
+    ];
+
+    const state = {
+      x: 1,
+      y: 1,
+      dir: 1,
+      floor: 1,
+      hp: 10,
+      potions: 5,
+      exp: 0,
+      credits: 0,
+      meleeSkill: 10,
+      shootingSkill: 10,
+      agility: 10,
+      toughness: 10,
+      skills: {
+        iaido: 0,
+        mindEye: 0,
+        dash: 0,
+        immovable: 0,
+        mizukagami: 0
+      },
+      playerDebuffs: {
+        fog: 0,
+        paralyze: 0
+      },
+      playerDebuffBattles: 0,
+      playerDebuffType: "",
+      playerName: DEFAULT_PLAYER_NAME,
+      archetypeKey: "blade",
+      meleeWeaponLevel: 1,
+      shootingWeaponLevel: 1,
+      jammerLevel: 2,
+      mode: "title",
+      customStats: {
+        meleeSkill: 0,
+        shootingSkill: 0,
+        agility: 0,
+        toughness: 0
+      },
+      statLevels: {
+        meleeSkill: 1,
+        shootingSkill: 1,
+        agility: 1,
+        toughness: 1
+      },
+      map: [],
+      stairs: { x: 1, y: 1 },
+      warps: [],
+      traps: [],
+      log: [],
+      showMap: false,
+      combatOpen: false,
+      encounterPending: false,
+      pendingCombatResult: null,
+      combatReturnRequested: false,
+      saveSlotIndex: null,
+      bossDefeatedFloors: new Set(),
+      adventureStats: createAdventureStats(),
+      gameOver: false
+    };
+
+    const colors = {
+      bg: "#050505",
+      line: "#f2f2f2",
+      wall: "#565656",
+      wallShade: "rgba(0, 0, 0, 0.18)",
+      distantHaze: "rgba(88, 112, 132, 0.12)",
+      darkWall: "#252525",
+      grid: "#686868",
+      mapWall: "#17202b",
+      mapFloor: "#b7f0d4",
+      mapGrid: "#315163",
+      mapPlayer: "#fff6a6",
+      mapFacing: "#ff5a4f",
+      mapStairs: "#66a3ff",
+      panel: "#151d2b",
+      panelStrong: "#1c2738",
+      panelBorder: "#2d3a50",
+      muted: "#9aa8bd",
+      hpFill: "#43c383",
+      red: "#e33535",
+      green: "#38d26e",
+      blue: "#4c8cff",
+      meleeCommand: "#8ce0b4",
+      shootCommand: "#ff9a8a",
+      potionActive: "#ffdc8a",
+      gold: "#f0c441",
+      neonWalls: [
+        "#00e5ff",
+        "#ff3df2",
+        "#7cff4f",
+        "#ffb347",
+        "#8f7cff",
+        "#ff4d6d"
+      ]
+    };
+
+    const DIRECTION_LABELS = [
+      { short: "N", label: "NORTH", jp: "北" },
+      { short: "E", label: "EAST", jp: "東" },
+      { short: "S", label: "SOUTH", jp: "南" },
+      { short: "W", label: "WEST", jp: "西" }
+    ];
+
+    function resize() {
+      const ratio = window.devicePixelRatio || 1;
+      const scale = Math.min(window.innerWidth / GAME_W, window.innerHeight / GAME_H);
+      const displayW = Math.floor(GAME_W * scale);
+      const displayH = Math.floor(GAME_H * scale);
+      const offsetX = (window.innerWidth - displayW) / 2;
+      const offsetY = (window.innerHeight - displayH) / 2;
+      canvas.width = Math.floor(GAME_W * ratio);
+      canvas.height = Math.floor(GAME_H * ratio);
+      canvas.style.width = `${displayW}px`;
+      canvas.style.height = `${displayH}px`;
+      encounterFlash.style.left = `${offsetX + (GAME_W / 2) * scale}px`;
+      encounterFlash.style.top = `${offsetY + 107 * scale}px`;
+      ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+      draw();
+    }
+
+    function randInt(min, max) {
+      return Math.floor(Math.random() * (max - min + 1)) + min;
+    }
+
+    function shuffle(list) {
+      for (let i = list.length - 1; i > 0; i -= 1) {
+        const j = randInt(0, i);
+        [list[i], list[j]] = [list[j], list[i]];
+      }
+      return list;
+    }
+
+    function addLog(text) {
+      state.log.unshift(text);
+      state.log = state.log.slice(0, 4);
+    }
+
+    function createAdventureStats() {
+      return {
+        steps: 0,
+        encounters: 0,
+        wins: 0,
+        losses: 0,
+        deepestFloor: 1,
+        expEarned: 0,
+        creditsEarned: 0,
+        potionsFound: 0,
+        playerAttacks: 0,
+        playerHits: 0,
+        meleeAttacks: 0,
+        meleeHits: 0,
+        shootAttacks: 0,
+        shootHits: 0,
+        damageDealt: 0,
+        damageTaken: 0,
+        codeTraceAttempts: 0,
+        codeTraceSuccesses: 0,
+        phaseLockAttempts: 0,
+        phaseLockSuccesses: 0,
+        anomalyScanAttempts: 0,
+        anomalyScanSuccesses: 0
+      };
+    }
+
+    function restart() {
+      state.playerName = normalizedPlayerName();
+      clearCustomStats();
+      applyCustomStats();
+      state.x = START_X;
+      state.y = START_Y;
+      state.dir = 1;
+      state.floor = 1;
+      state.potions = 5;
+      state.exp = 0;
+      state.credits = 0;
+      state.meleeWeaponLevel = 1;
+      state.shootingWeaponLevel = 1;
+      state.jammerLevel = 2;
+      state.skills = {
+        iaido: 0,
+        mindEye: 0,
+        dash: 0,
+        immovable: 0,
+        mizukagami: 0
+      };
+      state.playerDebuffs = {
+        fog: 0,
+        paralyze: 0
+      };
+      state.playerDebuffBattles = 0;
+      state.playerDebuffType = "";
+      state.hp = maxHp();
+      applyStartingStatLevels();
+      state.combatOpen = false;
+      state.encounterPending = false;
+      state.pendingCombatResult = null;
+      state.saveSlotIndex = null;
+      state.bossDefeatedFloors = new Set();
+      state.adventureStats = createAdventureStats();
+      state.gameOver = false;
+      state.mode = "playing";
+      state.log = [];
+      hideTitle();
+      hidePause();
+      closeCombatPopup();
+      startFloor();
+    }
+
+    function applyCustomStats() {
+      for (const stat of STAT_CONFIG) {
+        state[stat.key] = BASE_STATS[stat.key] + totalBonusFor(stat.key);
+      }
+    }
+
+    function applyStartingStatLevels() {
+      for (const stat of STAT_CONFIG) {
+        state.statLevels[stat.key] = 1 + totalBonusFor(stat.key);
+      }
+    }
+
+    function resetCustomStats() {
+      clearCustomStats();
+      renderTitleMenu();
+    }
+
+    function clearCustomStats() {
+      for (const stat of STAT_CONFIG) state.customStats[stat.key] = 0;
+    }
+
+    function currentArchetype() {
+      return ARCHETYPES.find(archetype => archetype.key === state.archetypeKey) || ARCHETYPES[0];
+    }
+
+    function currentArchetypeDefaultName() {
+      return currentArchetype().defaultName || DEFAULT_PLAYER_NAME;
+    }
+
+    function archetypeBonusFor(stat) {
+      return currentArchetype().bonus[stat] || 0;
+    }
+
+    function totalBonusFor(stat) {
+      return archetypeBonusFor(stat);
+    }
+
+    function hideTitle() {
+      titleOverlay.classList.remove("active");
+      titleOverlay.setAttribute("aria-hidden", "true");
+    }
+
+    function showTitle() {
+      state.mode = "title";
+      titleOverlay.classList.add("active");
+      titleOverlay.setAttribute("aria-hidden", "false");
+      renderTitleMenu();
+      draw();
+    }
+
+    function reborn() {
+      hideTitleConfirm();
+      closeCombatPopup();
+      hidePause();
+      showTitle();
+    }
+
+    function showTitleConfirm() {
+      titleConfirm.classList.add("active");
+      titleConfirm.setAttribute("aria-hidden", "false");
+      titleConfirmButton.focus();
+    }
+
+    function hideTitleConfirm() {
+      titleConfirm.classList.remove("active");
+      titleConfirm.setAttribute("aria-hidden", "true");
+    }
+
+    function showPause() {
+      if (state.mode !== "playing" || state.combatOpen || state.gameOver) return;
+      state.mode = "paused";
+      pauseOverlay.classList.add("active");
+      pauseOverlay.setAttribute("aria-hidden", "false");
+      renderPauseMenu();
+      draw();
+    }
+
+    function hidePause() {
+      hideTitleConfirm();
+      pauseOverlay.classList.remove("active");
+      pauseOverlay.setAttribute("aria-hidden", "true");
+    }
+
+    function resumeGame() {
+      if (state.mode !== "paused") return;
+      state.mode = "playing";
+      hidePause();
+      draw();
+    }
+
+    function togglePause() {
+      if (state.mode === "paused") {
+        resumeGame();
+      } else {
+        showPause();
+      }
+    }
+
+    function startFloor() {
+      generateDungeon();
+      placeStairs();
+      placeSpecialTiles();
+      addLog(`B${state.floor}F: dungeon starts.`);
+      draw();
+    }
+
+    function generateDungeon() {
+      state.map = Array.from({ length: MAP_H }, () => Array(MAP_W).fill(WALL));
+      carveMaze(START_X, START_Y);
+      addLoopConnections();
+      state.x = START_X;
+      state.y = START_Y;
+      state.dir = 1;
+    }
+
+    function carveMaze(cx, cy) {
+      state.map[cy][cx] = FLOOR;
+      const dirs = shuffle([
+        { x: 0, y: -2 },
+        { x: 2, y: 0 },
+        { x: 0, y: 2 },
+        { x: -2, y: 0 }
+      ]);
+
+      for (const d of dirs) {
+        const nx = cx + d.x;
+        const ny = cy + d.y;
+        if (nx <= 0 || nx >= MAP_W - 1 || ny <= 0 || ny >= MAP_H - 1) continue;
+        if (state.map[ny][nx] === FLOOR) continue;
+        state.map[cy + d.y / 2][cx + d.x / 2] = FLOOR;
+        carveMaze(nx, ny);
+      }
+    }
+
+    function addLoopConnections() {
+      for (let y = 1; y < MAP_H - 1; y += 1) {
+        for (let x = 1; x < MAP_W - 1; x += 1) {
+          if (state.map[y][x] !== WALL) continue;
+
+          const connectsHorizontal = state.map[y][x - 1] === FLOOR && state.map[y][x + 1] === FLOOR;
+          const connectsVertical = state.map[y - 1][x] === FLOOR && state.map[y + 1][x] === FLOOR;
+
+          if (
+            (connectsHorizontal || connectsVertical) &&
+            !wouldCreateWideFloor(x, y) &&
+            Math.random() < LOOP_CONNECTION_RATE
+          ) {
+            state.map[y][x] = FLOOR;
+          }
+        }
+      }
+    }
+
+    function wouldCreateWideFloor(x, y) {
+      for (let oy = -1; oy <= 0; oy += 1) {
+        for (let ox = -1; ox <= 0; ox += 1) {
+          let floorCount = 0;
+
+          for (let yy = 0; yy <= 1; yy += 1) {
+            for (let xx = 0; xx <= 1; xx += 1) {
+              const tx = x + ox + xx;
+              const ty = y + oy + yy;
+              const isCandidate = tx === x && ty === y;
+
+              if (isCandidate || state.map[ty][tx] === FLOOR) {
+                floorCount += 1;
+              }
+            }
+          }
+
+          if (floorCount === 4) return true;
+        }
+      }
+
+      return false;
+    }
+
+    function isWall(x, y) {
+      if (y < 0 || y >= state.map.length) return true;
+      if (x < 0 || x >= state.map[y].length) return true;
+      return state.map[y][x] === WALL;
+    }
+
+    function placeStairs() {
+      let best = { x: 1, y: 1 };
+      let bestDist = -1;
+      for (let y = 0; y < MAP_H; y += 1) {
+        for (let x = 0; x < MAP_W; x += 1) {
+          if (isWall(x, y)) continue;
+          const dist = Math.abs(x - state.x) + Math.abs(y - state.y);
+          if (dist > bestDist) {
+            bestDist = dist;
+            best = { x, y };
+          }
+        }
+      }
+      state.stairs = best;
+    }
+
+    function placeSpecialTiles() {
+      state.warps = [];
+      state.traps = [];
+      const blocked = new Set([posKey({ x: state.x, y: state.y }), posKey(state.stairs)]);
+      for (let index = 0; index < WARP_TILE_COUNT; index += 1) {
+        const tile = randomOpenTile(blocked);
+        if (tile) {
+          state.warps.push(tile);
+          blocked.add(posKey(tile));
+        }
+      }
+      for (let index = 0; index < TRAP_TILE_COUNT; index += 1) {
+        const tile = randomOpenTile(blocked);
+        if (tile) {
+          state.traps.push(tile);
+          blocked.add(posKey(tile));
+        }
+      }
+    }
+
+    function randomOpenTile(blocked = new Set()) {
+      const candidates = [];
+      for (let y = 1; y < MAP_H - 1; y += 1) {
+        for (let x = 1; x < MAP_W - 1; x += 1) {
+          const pos = { x, y };
+          if (isWall(x, y) || blocked.has(posKey(pos))) continue;
+          if (Math.abs(x - state.x) + Math.abs(y - state.y) < 6) continue;
+          candidates.push(pos);
+        }
+      }
+      if (!candidates.length) return null;
+      return candidates[Math.floor(Math.random() * candidates.length)];
+    }
+
+    function posKey(pos) {
+      return `${pos.x},${pos.y}`;
+    }
+
+    function tileIndexAt(list, pos) {
+      return list.findIndex(tile => same(tile, pos));
+    }
+
+    function same(a, b) {
+      return a.x === b.x && a.y === b.y;
+    }
+
+    function normalizedSkillLevel(value) {
+      if (typeof value === "number") return Math.max(0, Math.min(MAX_SKILL_LEVEL, Math.floor(value)));
+      return value ? 1 : 0;
+    }
+
+    function normalizedSkillLevels(skills = {}) {
+      return {
+        iaido: normalizedSkillLevel(skills.iaido),
+        mindEye: normalizedSkillLevel(skills.mindEye),
+        dash: normalizedSkillLevel(skills.dash),
+        immovable: normalizedSkillLevel(skills.immovable),
+        mizukagami: normalizedSkillLevel(skills.mizukagami)
+      };
+    }
+
+    function skillLevel(skill) {
+      return normalizedSkillLevel(state.skills?.[skill]);
+    }
+
+    function skillUpgradeCost(skill) {
+      return SKILL_EXP_COSTS[skillLevel(skill)] || 0;
+    }
+
+    function skillMastered(skill) {
+      return skillLevel(skill) >= MAX_SKILL_LEVEL;
+    }
+
+    function canRevealHazards() {
+      return skillLevel("mindEye") >= 2;
+    }
+
+    function normalizePlayerDebuffs(data = {}) {
+      const debuffs = {
+        fog: Math.max(0, Number.parseInt(data.fog, 10) || 0),
+        paralyze: Math.max(0, Number.parseInt(data.paralyze, 10) || 0)
+      };
+      return debuffs;
+    }
+
+    function syncLegacyPlayerDebuff() {
+      const entries = Object.entries(state.playerDebuffs || {})
+        .filter(([, turns]) => turns > 0)
+        .sort((a, b) => b[1] - a[1]);
+      state.playerDebuffType = entries[0]?.[0] || "";
+      state.playerDebuffBattles = entries[0]?.[1] || 0;
+    }
+
+    function migrateLegacyPlayerDebuff(data = {}) {
+      const debuffs = normalizePlayerDebuffs(data.playerDebuffs || {});
+      if (data.playerDebuffType && data.playerDebuffBattles > 0) {
+        debuffs[data.playerDebuffType] = Math.max(debuffs[data.playerDebuffType] || 0, data.playerDebuffBattles);
+      }
+      return debuffs;
+    }
+
+    function dirVector() {
+      return [
+        { x: 0, y: -1 },
+        { x: 1, y: 0 },
+        { x: 0, y: 1 },
+        { x: -1, y: 0 }
+      ][state.dir];
+    }
+
+    function relativePos(side, forward) {
+      const f = dirVector();
+      const r = { x: -f.y, y: f.x };
+      return {
+        x: state.x + f.x * forward + r.x * side,
+        y: state.y + f.y * forward + r.y * side
+      };
+    }
+
+    function tryMove(pos) {
+      if (state.encounterPending || state.showMap) return false;
+      if (isWall(pos.x, pos.y)) {
+        addLog("A wall blocks the way.");
+        draw();
+        return false;
+      }
+      state.x = pos.x;
+      state.y = pos.y;
+      state.adventureStats.steps += 1;
+      playFootstepSound();
+      resolveSpecialTile(pos);
+      const currentPos = { x: state.x, y: state.y };
+      if (same(currentPos, state.stairs)) {
+        beginDescend();
+        return false;
+      }
+      if (isStartTile(currentPos)) {
+        activateSavePoint();
+        draw();
+        return true;
+      }
+      if (isNextToStairs(currentPos) && !bossDefeatedOnCurrentFloor()) {
+        addLog("A powerful guardian blocks the stairs.");
+        beginEncounter("boss");
+      } else {
+        checkRandomEncounter();
+      }
+      draw();
+      return true;
+    }
+
+    function isNextToStairs(pos) {
+      return Math.abs(pos.x - state.stairs.x) + Math.abs(pos.y - state.stairs.y) === 1;
+    }
+
+    function isStartTile(pos = { x: state.x, y: state.y }) {
+      return pos.x === START_X && pos.y === START_Y;
+    }
+
+    function isWarpTile(pos) {
+      return tileIndexAt(state.warps, pos) >= 0;
+    }
+
+    function isTrapTile(pos) {
+      return tileIndexAt(state.traps, pos) >= 0;
+    }
+
+    function activateSavePoint({ popup = true } = {}) {
+      if (popup) showEventPopup("SAVE");
+      saveGame();
+    }
+
+    function saveIfOnStartTile() {
+      if (!isStartTile() || state.combatOpen || state.encounterPending) return;
+      saveGame();
+    }
+
+    function bossDefeatedOnCurrentFloor() {
+      return state.bossDefeatedFloors.has(state.floor);
+    }
+
+    function markBossDefeatedOnCurrentFloor() {
+      state.bossDefeatedFloors.add(state.floor);
+    }
+
+    function checkRandomEncounter() {
+      const rate = ENCOUNTER_RATE;
+      if (Math.random() >= rate) return;
+
+      addLog("A wandering enemy appears.");
+      beginEncounter();
+    }
+
+    function resolveSpecialTile(pos) {
+      const warpIndex = tileIndexAt(state.warps, pos);
+      if (warpIndex >= 0) {
+        state.warps.splice(warpIndex, 1);
+        const blocked = new Set([posKey(pos), posKey(state.stairs), ...state.traps.map(posKey)]);
+        const target = randomOpenTile(blocked);
+        if (target) {
+          state.x = target.x;
+          state.y = target.y;
+          showEventPopup("WARP");
+          addLog("Warp tile activated. Position scrambled.");
+        }
+        return;
+      }
+
+      const trapIndex = tileIndexAt(state.traps, pos);
+      if (trapIndex >= 0) {
+        state.traps.splice(trapIndex, 1);
+        const type = Math.random() < 0.5 ? "fog" : "paralyze";
+        state.playerDebuffs[type] = (state.playerDebuffs[type] || 0) + TRAP_DEBUFF_BATTLES;
+        syncLegacyPlayerDebuff();
+        showEventPopup("TRAP");
+        triggerTrapFlash();
+        addLog(`Trap tile activated. ${type.toUpperCase()} +${TRAP_DEBUFF_BATTLES} battles.`);
+      }
+    }
+
+    function showEventPopup(label) {
+      encounterFlash.textContent = label;
+      encounterFlash.classList.remove("active");
+      void encounterFlash.offsetWidth;
+      encounterFlash.classList.add("active");
+      window.setTimeout(() => encounterFlash.classList.remove("active"), 1000);
+    }
+
+    function triggerTrapFlash() {
+      trapFlash.classList.remove("active");
+      void trapFlash.offsetWidth;
+      trapFlash.classList.add("active");
+      window.setTimeout(() => trapFlash.classList.remove("active"), 720);
+    }
+
+    function beginEncounter(enemyStrength = "") {
+      if (state.encounterPending || state.combatOpen) return;
+      state.encounterPending = true;
+      playEncounterSound();
+      showEventPopup(enemyStrength === "boss" ? "BOSS" : "ENCOUNTER");
+      window.setTimeout(() => {
+        state.encounterPending = false;
+        openCombatPopup(enemyStrength);
+      }, 1000);
+      draw();
+    }
+
+    function beginDescend() {
+      if (state.encounterPending || state.combatOpen) return;
+      state.encounterPending = true;
+      showEventPopup("DESCEND");
+      window.setTimeout(() => {
+        state.encounterPending = false;
+        descend();
+      }, 1000);
+      draw();
+    }
+
+    function openCombatPopup(enemyStrength = "") {
+      state.combatOpen = true;
+      state.pendingCombatResult = null;
+      state.combatReturnRequested = false;
+      state.adventureStats.encounters += 1;
+      combatResult.classList.remove("active");
+      combatOverlay.classList.add("active");
+      combatOverlay.setAttribute("aria-hidden", "false");
+      const params = new URLSearchParams({
+        floor: state.floor,
+        meleeSkill: state.meleeSkill,
+        shootingSkill: state.shootingSkill,
+        agility: state.agility,
+        toughness: state.toughness,
+        meleeWeaponDamage: meleeWeaponDamage(),
+        shootingWeaponDamage: shootingWeaponDamage(),
+        meleeWeaponName: weaponDisplayName("melee"),
+        shootingWeaponName: weaponDisplayName("shoot"),
+        jammerLevel: state.jammerLevel,
+        playerName: state.playerName,
+        hp: state.hp,
+        potions: state.potions,
+        iaido: skillLevel("iaido"),
+        mindEye: skillLevel("mindEye"),
+        dash: skillLevel("dash"),
+        immovable: skillLevel("immovable"),
+        mizukagami: skillLevel("mizukagami"),
+        playerDebuff: (state.playerDebuffs.fog > 0 || state.playerDebuffs.paralyze > 0) ? 1 : 0,
+        playerDebuffBattles: state.playerDebuffBattles,
+        playerDebuffType: state.playerDebuffType,
+        playerFogBattles: state.playerDebuffs.fog || 0,
+        playerParalyzeBattles: state.playerDebuffs.paralyze || 0,
+        enemyStrength,
+        t: Date.now()
+      });
+      combatFrame.src = `combat-system.html?${params.toString()}`;
+      draw();
+    }
+
+    function focusCombatFrame() {
+      if (!state.combatOpen) return;
+      combatFrame.focus();
+      combatFrame.contentWindow?.focus();
+    }
+
+    function closeCombatPopup() {
+      combatOverlay.classList.remove("active");
+      combatOverlay.setAttribute("aria-hidden", "true");
+      combatResult.classList.remove("active");
+      combatFrame.removeAttribute("src");
+      restoreDungeonFocus();
+    }
+
+    function restoreDungeonFocus() {
+      window.focus();
+      canvas.focus({ preventScroll: true });
+    }
+
+    function showCombatResult(result) {
+      state.pendingCombatResult = result;
+      combatResultText.textContent = "";
+      combatResult.classList.add("active");
+      combatContinueButton.focus({ preventScroll: true });
+      if (state.combatReturnRequested) finishCombatPopup();
+    }
+
+    function finishCombatPopup() {
+      const result = state.pendingCombatResult;
+      if (!result) return;
+
+      state.combatOpen = false;
+      state.pendingCombatResult = null;
+      state.combatReturnRequested = false;
+      closeCombatPopup();
+      mergeBattleStats(result.battleStats);
+
+      if (result.outcome === "win") {
+        state.adventureStats.wins += 1;
+        if (result.enemyStrength === "boss") {
+          markBossDefeatedOnCurrentFloor();
+          addLog(`B${state.floor}F guardian defeated.`);
+        }
+        state.hp = maxHp();
+        if (Number.isFinite(result.playerPotions)) {
+          state.potions = clampPotions(result.playerPotions);
+        }
+        const reward = rewardForCombat(result);
+        state.exp += reward.exp;
+        state.credits += reward.credits;
+        state.adventureStats.expEarned += reward.exp;
+        state.adventureStats.creditsEarned += reward.credits;
+        addLog(`Enemy defeated. EXP +${reward.exp} / CREDIT +${reward.credits}.`);
+      } else {
+        state.adventureStats.losses += 1;
+        state.hp = 0;
+        state.gameOver = true;
+        addLog("You fall in the dungeon.");
+      }
+      const clearedDebuffs = [];
+      for (const type of ["fog", "paralyze"]) {
+        if ((state.playerDebuffs[type] || 0) > 0) {
+          state.playerDebuffs[type] -= 1;
+          if (state.playerDebuffs[type] === 0) clearedDebuffs.push(type.toUpperCase());
+        }
+      }
+      syncLegacyPlayerDebuff();
+      if (clearedDebuffs.length > 0) {
+        addLog(`Trap jamming cleared: ${clearedDebuffs.join(" / ")}.`);
+      }
+      draw();
+    }
+
+    function rewardForCombat(result) {
+      const strength = result.enemyStrength || "even";
+      const base = REWARD_BY_ENEMY_STRENGTH[strength] || REWARD_BY_ENEMY_STRENGTH.even;
+      const stats = result.enemyStats || {};
+      const damage = result.enemyDamage || {};
+      const statScore =
+        safeNumber(stats.meleeSkill) +
+        safeNumber(stats.shootingSkill) +
+        safeNumber(stats.agility) +
+        safeNumber(stats.toughness);
+      const damageScore = safeNumber(damage.melee) + safeNumber(damage.shoot);
+      const hackScore = safeNumber(result.enemyHackLevel);
+      const floorBonus = Math.max(0, state.floor - 1);
+      const strengthBonus = { weak: 0, even: 3, strong: 7, boss: 14 }[strength] || 3;
+      return {
+        label: base.label,
+        exp: Math.max(base.exp, Math.round(5 + statScore / 17 + damageScore + hackScore + strengthBonus + floorBonus * 0.9)),
+        credits: Math.max(base.credits, Math.round(10 + statScore / 9.5 + damageScore * 2 + hackScore + strengthBonus + floorBonus * 2.15 + randInt(state.floor, state.floor * 2)))
+      };
+    }
+
+    function safeNumber(value) {
+      return Number.isFinite(value) ? value : 0;
+    }
+
+    function mergeBattleStats(battleStats = {}) {
+      const keys = [
+        "playerAttacks",
+        "playerHits",
+        "meleeAttacks",
+        "meleeHits",
+        "shootAttacks",
+        "shootHits",
+        "damageDealt",
+        "damageTaken",
+        "codeTraceAttempts",
+        "codeTraceSuccesses",
+        "phaseLockAttempts",
+        "phaseLockSuccesses",
+        "anomalyScanAttempts",
+        "anomalyScanSuccesses"
+      ];
+      for (const key of keys) {
+        state.adventureStats[key] += Number.isFinite(battleStats[key]) ? battleStats[key] : 0;
+      }
+    }
+
+    let audioContext;
+
+    function getAudioContext() {
+      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+      if (!AudioContextClass) return null;
+      if (!audioContext) audioContext = new AudioContextClass();
+      if (audioContext.state === "suspended") audioContext.resume();
+      return audioContext;
+    }
+
+    function createNoiseBuffer(context, duration) {
+      const buffer = context.createBuffer(1, context.sampleRate * duration, context.sampleRate);
+      const data = buffer.getChannelData(0);
+      for (let index = 0; index < data.length; index += 1) {
+        data[index] = Math.random() * 2 - 1;
+      }
+      return buffer;
+    }
+
+    function playFootstepSound() {
+      const context = getAudioContext();
+      if (!context) return;
+
+      [0, 0.11].forEach((offset) => {
+        const now = context.currentTime + offset;
+        const noise = context.createBufferSource();
+        const filter = context.createBiquadFilter();
+        const gain = context.createGain();
+
+        noise.buffer = createNoiseBuffer(context, 0.08);
+        filter.type = "lowpass";
+        filter.frequency.setValueAtTime(210, now);
+        filter.Q.setValueAtTime(0.7, now);
+
+        gain.gain.setValueAtTime(0.0001, now);
+        gain.gain.exponentialRampToValueAtTime(0.22, now + 0.012);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.08);
+
+        noise.connect(filter).connect(gain).connect(context.destination);
+        noise.start(now);
+        noise.stop(now + 0.09);
+      });
+    }
+
+    function playEncounterSound() {
+      const context = getAudioContext();
+      if (!context) return;
+
+      const now = context.currentTime;
+      [0, 0.1, 0.2].forEach((offset, index) => {
+        const oscillator = context.createOscillator();
+        const gain = context.createGain();
+        oscillator.type = "square";
+        oscillator.frequency.setValueAtTime(220 + index * 95, now + offset);
+        gain.gain.setValueAtTime(0.0001, now + offset);
+        gain.gain.exponentialRampToValueAtTime(0.18, now + offset + 0.015);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + offset + 0.09);
+        oscillator.connect(gain).connect(context.destination);
+        oscillator.start(now + offset);
+        oscillator.stop(now + offset + 0.1);
+      });
+    }
+
+    function usePotion() {
+      if (state.potions <= 0) {
+        addLog("No potion.");
+        draw();
+        return;
+      }
+      if (state.hp >= maxHp()) {
+        addLog("HP already full.");
+        draw();
+        return;
+      }
+      state.potions -= 1;
+      state.hp = Math.min(maxHp(), state.hp + 12);
+      addLog("Potion heals 12.");
+      saveIfOnStartTile();
+      draw();
+    }
+
+    function buyPotion() {
+      if (state.potions >= MAX_POTIONS) {
+        addLog("Potion stock is full.");
+        draw();
+        return;
+      }
+      if (state.credits < POTION_PRICE) {
+        addLog(`Need ${POTION_PRICE} credits to buy a potion.`);
+        draw();
+        return;
+      }
+
+      state.credits -= POTION_PRICE;
+      state.potions = clampPotions(state.potions + 1);
+      addLog(`Potion purchased. CREDIT -${POTION_PRICE}.`);
+      saveIfOnStartTile();
+      draw();
+    }
+
+    function clampPotions(value) {
+      return Math.max(0, Math.min(MAX_POTIONS, Math.floor(value)));
+    }
+
+    function toggleMap() {
+      if (state.showMap) {
+        state.showMap = false;
+        draw();
+        return;
+      }
+
+      if (state.credits < MAP_PRICE) {
+        addLog(`Need ${MAP_PRICE} credits to request radar scan.`);
+        draw();
+        return;
+      }
+
+      state.credits -= MAP_PRICE;
+      state.showMap = true;
+      addLog(`Radar scan complete. CREDIT -${MAP_PRICE}.`);
+      saveIfOnStartTile();
+      draw();
+    }
+
+    function trainStat(stat) {
+      const labels = {
+        meleeSkill: "近接",
+        shootingSkill: "射撃",
+        agility: "敏捷",
+        toughness: "頑強"
+      };
+      const level = state.statLevels[stat];
+      const cost = trainingCostFor(stat);
+
+      if (state[stat] >= STAT_CAP) {
+        addLog(`${labels[stat]} is already capped.`);
+        draw();
+        return;
+      }
+
+      if (state.exp < cost) {
+        addLog(`Need ${cost} EXP to raise ${labels[stat]} to Lv${level + 1}.`);
+        draw();
+        return;
+      }
+
+      state.exp -= cost;
+      state[stat] += 1;
+      state.statLevels[stat] += 1;
+      if (stat === "toughness") {
+        state.hp = Math.min(maxHp(), state.hp + 1);
+      }
+      addLog(`${labels[stat]} Lv${state.statLevels[stat]}. EXP -${cost}.`);
+      saveIfOnStartTile();
+      draw();
+    }
+
+    function upgradeWeapon(kind) {
+      const isMelee = kind === "melee";
+      const isJammer = kind === "jammer";
+      const levelKey = isJammer ? "jammerLevel" : isMelee ? "meleeWeaponLevel" : "shootingWeaponLevel";
+      const label = isJammer ? "JAMMER" : isMelee ? MELEE_WEAPON_NAME : SHOOTING_WEAPON_NAME;
+      const cost = weaponUpgradeCost(state[levelKey]);
+
+      if (state[levelKey] >= MAX_WEAPON_LEVEL) {
+        addLog(`${label} is already at maximum upgrade.`);
+        draw();
+        return;
+      }
+
+      if (state.credits < cost) {
+        addLog(`Need ${cost} credits to upgrade ${label}.`);
+        draw();
+        return;
+      }
+
+      state.credits -= cost;
+      state[levelKey] += 1;
+      addLog(`${isJammer ? jammerDisplayName() : weaponDisplayName(kind)} upgraded. CREDIT -${cost}.`);
+      saveIfOnStartTile();
+      draw();
+    }
+
+    function weaponUpgradeCost(level) {
+      const costs = [300, 500, 800, 1100, 1500, 2000];
+      return costs[Math.max(0, Math.min(costs.length - 1, level - 1))];
+    }
+
+    function learnSkill(skill) {
+      const labels = {
+        iaido: "居合",
+        mindEye: "心眼",
+        dash: "疾駆",
+        immovable: "不動",
+        mizukagami: "水鏡"
+      };
+      const currentLevel = skillLevel(skill);
+      if (currentLevel >= MAX_SKILL_LEVEL) {
+        addLog(`${labels[skill]}はすでに最終段階。`);
+        draw();
+        return;
+      }
+      const cost = skillUpgradeCost(skill);
+      if (state.exp < cost) {
+        addLog(`${labels[skill]} Lv${currentLevel + 1}には${cost} EXPが必要。`);
+        draw();
+        return;
+      }
+
+      state.exp -= cost;
+      state.skills[skill] = currentLevel + 1;
+      addLog(`${labels[skill]} Lv${currentLevel + 1}を会得。EXP -${cost}.`);
+      saveIfOnStartTile();
+      draw();
+    }
+
+    function weaponPlusText(level) {
+      return level <= 1 ? "" : ` +${level - 1}`;
+    }
+
+    function weaponDisplayName(kind) {
+      const isMelee = kind === "melee";
+      const name = isMelee ? MELEE_WEAPON_NAME : SHOOTING_WEAPON_NAME;
+      const level = isMelee ? state.meleeWeaponLevel : state.shootingWeaponLevel;
+      return `${name}${weaponPlusText(level)}`;
+    }
+
+    function weaponNextDisplayName(kind) {
+      const isMelee = kind === "melee";
+      const name = isMelee ? MELEE_WEAPON_NAME : SHOOTING_WEAPON_NAME;
+      const currentLevel = isMelee ? state.meleeWeaponLevel : state.shootingWeaponLevel;
+      if (currentLevel >= MAX_WEAPON_LEVEL) return "MAX";
+      const level = currentLevel + 1;
+      return `${name}${weaponPlusText(level)}`;
+    }
+
+    function jammerBonusSeconds(level = state.jammerLevel) {
+      return Math.max(0, level - 1) * 0.5;
+    }
+
+    function jammerHitPenaltyBonus(level = state.jammerLevel) {
+      return Math.max(0, level - 1) * 2;
+    }
+
+    function jammerDisplayName() {
+      return `JAMMER${weaponPlusText(state.jammerLevel)}`;
+    }
+
+    function meleeWeaponDamage() {
+      return MELEE_WEAPON_BASE_DAMAGE + state.meleeWeaponLevel - 1;
+    }
+
+    function shootingWeaponDamage() {
+      return SHOOTING_WEAPON_BASE_DAMAGE + state.shootingWeaponLevel - 1;
+    }
+
+    function maxHp() {
+      return state.toughness;
+    }
+
+    function trainingCostFor(stat) {
+      return 40 + state.statLevels[stat] * 20;
+    }
+
+    function descend() {
+      state.showMap = false;
+      state.floor += 1;
+      state.adventureStats.deepestFloor = Math.max(state.adventureStats.deepestFloor, state.floor);
+      state.hp = Math.min(maxHp(), state.hp + 2);
+      startFloor();
+      saveGame();
+      draw();
+    }
+
+    function renderTitleMenu() {
+      applyPortraitArt();
+      if (document.activeElement !== runnerNameInput) {
+        runnerNameInput.value = normalizedPlayerName();
+      }
+      portraitSelect.innerHTML = portraitSelectHtml();
+      continueGameButton.disabled = !hasSavedGame();
+      saveSlotList.innerHTML = saveSlotsHtml();
+      titleStatList.innerHTML = statListHtml(titleStatsSnapshot());
+    }
+
+    function hasSavedGame() {
+      return saveSlots().some(Boolean);
+    }
+
+    function saveSlotKey(index) {
+      return `${SAVE_KEY}-slot-${index + 1}`;
+    }
+
+    function readSaveSlot(index) {
+      try {
+        const raw = localStorage.getItem(saveSlotKey(index));
+        if (raw) return JSON.parse(raw);
+        if (index === 0) {
+          const legacy = localStorage.getItem(SAVE_KEY);
+          return legacy ? JSON.parse(legacy) : null;
+        }
+      } catch (error) {
+        return null;
+      }
+      return null;
+    }
+
+    function saveSlots() {
+      return Array.from({ length: SAVE_SLOT_COUNT }, (_, index) => readSaveSlot(index));
+    }
+
+    function firstEmptySaveSlotIndex() {
+      return saveSlots().findIndex(slot => !slot);
+    }
+
+    function latestSavedSlotIndex() {
+      const slots = saveSlots();
+      let latestIndex = -1;
+      let latestSavedAt = -1;
+      slots.forEach((slot, index) => {
+        if (!slot) return;
+        const savedAt = Number(slot.savedAt || 0);
+        if (savedAt > latestSavedAt) {
+          latestSavedAt = savedAt;
+          latestIndex = index;
+        }
+      });
+      return latestIndex;
+    }
+
+    function saveSlotSummary(slot, index) {
+      if (!slot) return `<strong>SLOT ${index + 1}</strong><span>EMPTY</span>`;
+      const saved = slot.savedAt ? new Date(slot.savedAt).toLocaleString() : "UNKNOWN TIME";
+      return `
+        <strong class="save-slot-title">
+          <span>SLOT ${index + 1} / ${escapeHtml(slot.playerName || DEFAULT_PLAYER_NAME)} / B${slot.floor || 1}F</span>
+          <time>${saved}</time>
+        </strong>
+        ${saveSlotStatsHtml(slot)}
+      `;
+    }
+
+    function saveSlotStatsHtml(slot) {
+      const stats = STAT_CONFIG.map(stat => {
+        const value = slot?.[stat.key] ?? BASE_STATS[stat.key];
+        return `<span class="portrait-stat"><strong>${stat.short}</strong><span>${value}</span></span>`;
+      }).join("");
+      return `<span class="portrait-stats">${stats}</span>`;
+    }
+
+    function saveSlotPortraitHtml(slot) {
+      if (!slot) return `<span class="save-slot-portrait empty" aria-hidden="true"></span>`;
+      const archetype = ARCHETYPES.find(item => item.key === slot.archetypeKey) || ARCHETYPES[0];
+      return `<span class="save-slot-portrait" style="--save-slot-portrait: url('${archetype.file}')" aria-hidden="true"></span>`;
+    }
+
+    function saveSlotsHtml() {
+      return saveSlots().map((slot, index) => `
+        <div class="save-slot">
+          ${saveSlotPortraitHtml(slot)}
+          <div class="save-slot-main">${saveSlotSummary(slot, index)}</div>
+          <button type="button" data-save-load="${index}" ${slot ? "" : "disabled"}>LOAD</button>
+          <button class="delete" type="button" data-save-delete="${index}" ${slot ? "" : "disabled"}>DELETE</button>
+        </div>
+      `).join("");
+    }
+
+    function saveGame() {
+      let slotIndex = state.saveSlotIndex;
+      if (slotIndex === null || slotIndex < 0 || slotIndex >= SAVE_SLOT_COUNT) {
+        slotIndex = firstEmptySaveSlotIndex();
+      }
+      if (slotIndex < 0) {
+        addLog("Auto save skipped. No empty save slot.");
+        return false;
+      }
+      state.saveSlotIndex = slotIndex;
+      const data = {
+        version: 1,
+        savedAt: Date.now(),
+        x: state.x,
+        y: state.y,
+        dir: state.dir,
+        floor: state.floor,
+        hp: state.hp,
+        potions: state.potions,
+        exp: state.exp,
+        credits: state.credits,
+        meleeSkill: state.meleeSkill,
+        shootingSkill: state.shootingSkill,
+        agility: state.agility,
+        toughness: state.toughness,
+        skills: { ...state.skills },
+        playerDebuffs: { ...state.playerDebuffs },
+        playerDebuffBattles: state.playerDebuffBattles,
+        playerDebuffType: state.playerDebuffType,
+        playerName: state.playerName,
+        archetypeKey: state.archetypeKey,
+        meleeWeaponLevel: state.meleeWeaponLevel,
+        shootingWeaponLevel: state.shootingWeaponLevel,
+        jammerLevel: state.jammerLevel,
+        customStats: { ...state.customStats },
+        statLevels: { ...state.statLevels },
+        map: state.map,
+        stairs: { ...state.stairs },
+        warps: state.warps.map(tile => ({ ...tile })),
+        traps: state.traps.map(tile => ({ ...tile })),
+        log: [...state.log],
+        adventureStats: { ...state.adventureStats },
+        bossDefeatedFloors: [...state.bossDefeatedFloors]
+      };
+      try {
+        localStorage.setItem(saveSlotKey(slotIndex), JSON.stringify(data));
+        if (slotIndex === 0) localStorage.removeItem(SAVE_KEY);
+        addLog(`B${state.floor}F: auto saved to slot ${slotIndex + 1}.`);
+        return true;
+      } catch (error) {
+        addLog("Auto save failed.");
+        return false;
+      }
+    }
+
+    function deleteSaveSlot(index) {
+      try {
+        localStorage.removeItem(saveSlotKey(index));
+        if (index === 0) localStorage.removeItem(SAVE_KEY);
+      } catch (error) {
+        return;
+      }
+      if (state.saveSlotIndex === index) state.saveSlotIndex = null;
+      renderTitleMenu();
+    }
+
+    function continueSavedGame(slotIndex = latestSavedSlotIndex()) {
+      const data = Number.isInteger(slotIndex) && slotIndex >= 0 ? readSaveSlot(slotIndex) : null;
+      if (!data || data.version !== 1) return;
+
+      state.saveSlotIndex = slotIndex;
+      state.floor = data.floor;
+      state.hp = data.hp;
+      state.potions = data.potions;
+      state.exp = data.exp;
+      state.credits = data.credits;
+      state.meleeSkill = data.meleeSkill;
+      state.shootingSkill = data.shootingSkill;
+      state.agility = data.agility;
+      state.toughness = data.toughness;
+      state.skills = normalizedSkillLevels({ ...state.skills, ...data.skills });
+      state.playerDebuffs = migrateLegacyPlayerDebuff(data);
+      syncLegacyPlayerDebuff();
+      state.playerName = data.playerName || DEFAULT_PLAYER_NAME;
+      state.archetypeKey = data.archetypeKey || "blade";
+      state.meleeWeaponLevel = data.meleeWeaponLevel || 1;
+      state.shootingWeaponLevel = data.shootingWeaponLevel || 1;
+      state.jammerLevel = Number.isFinite(data.jammerLevel) ? data.jammerLevel : 2;
+      state.customStats = { ...state.customStats, ...data.customStats };
+      state.statLevels = { ...state.statLevels, ...data.statLevels };
+      state.log = Array.isArray(data.log) ? data.log : [];
+      state.adventureStats = { ...createAdventureStats(), ...data.adventureStats };
+      state.bossDefeatedFloors = new Set(Array.isArray(data.bossDefeatedFloors) ? data.bossDefeatedFloors : []);
+      generateDungeon();
+      placeStairs();
+      placeSpecialTiles();
+      state.showMap = false;
+      state.combatOpen = false;
+      state.encounterPending = false;
+      state.pendingCombatResult = null;
+      state.combatReturnRequested = false;
+      state.gameOver = false;
+      state.mode = "playing";
+      applyPortraitArt();
+      hideTitle();
+      hidePause();
+      closeCombatPopup();
+      addLog(`B${state.floor}F: save resumed. New dungeon generated.`);
+      draw();
+      restoreDungeonFocus();
+    }
+
+    function renderPauseMenu() {
+      applyPortraitArt();
+      pauseStatList.innerHTML = dojoControlsHtml();
+      dojoProfile.innerHTML = dojoProfileHtml();
+      dojoPotionBar.innerHTML = dojoPotionBarHtml();
+      pauseResourceList.innerHTML = dojoStatusHtml();
+    }
+
+    function applyPortraitArt() {
+      document.documentElement.style.setProperty("--character-art-image", `url("${currentArchetype().file}")`);
+    }
+
+    function portraitSelectHtml() {
+      return ARCHETYPES.map(archetype => {
+        const stats = STAT_CONFIG.map(stat => {
+          const value = BASE_STATS[stat.key] + (archetype.bonus[stat.key] || 0);
+          return `<span class="portrait-stat"><strong>${stat.short}</strong><span>${value}</span></span>`;
+        }).join("");
+        return `
+          <button class="portrait-button ${archetype.key === state.archetypeKey ? "selected" : ""}" type="button" data-archetype="${archetype.key}">
+            <span class="portrait-thumb" style="--portrait-thumb: url('${archetype.file}')"></span>
+            <span>
+              <strong class="portrait-label">${archetype.label}</strong>
+              <span class="portrait-stats">${stats}</span>
+            </span>
+          </button>
+        `;
+      }).join("");
+    }
+
+    function dojoProfileHtml() {
+      return `
+        <div class="dojo-profile-name">${escapeHtml(state.playerName)}</div>
+        <div class="dojo-profile-meta">
+          <span>B${state.floor}F</span>
+          <span>${escapeHtml(earnedBadgesText())}</span>
+        </div>
+      `;
+    }
+
+    function dojoPotionBarHtml() {
+      return Array.from({ length: MAX_POTIONS }, (_, index) => (
+        `<span class="dojo-potion-dot ${index < state.potions ? "active" : ""}"></span>`
+      )).join("");
+    }
+
+    function dojoStatusHtml() {
+      const ability = [
+        ["MEL", state.meleeSkill, ""],
+        ["SHOT", state.shootingSkill, ""],
+        ["AGI", state.agility, ""],
+        ["TOU", state.toughness, ""]
+      ];
+      const equip = [
+        ["KNIFE", meleeWeaponDamage(), "weapon"],
+        ["GUN", shootingWeaponDamage(), "weapon"],
+        ["JAM", state.jammerLevel, "weapon"]
+      ];
+
+      return `
+        <div class="dojo-status">
+          <div class="dojo-status-strip">
+            ${dojoStatusGroupHtml("ABILITY", ability, 4)}
+            ${dojoStatusGroupHtml("EQUIP", equip, 3)}
+          </div>
+          <div class="dojo-services">
+            ${dojoServiceButtonHtml({
+              action: "potion",
+              label: "ポーション購入",
+              note: `${POTION_PRICE} CREDIT / ${state.potions}/${MAX_POTIONS}`,
+              enabled: state.potions < MAX_POTIONS && state.credits >= POTION_PRICE
+            })}
+            ${dojoServiceButtonHtml({
+              action: "radar",
+              label: "レーダー捜査依頼",
+              note: `${MAP_PRICE} CREDIT`,
+              enabled: state.credits >= MAP_PRICE
+            })}
+          </div>
+          <div class="dojo-resources">
+            <div class="dojo-resource-card">
+              <strong>EXP</strong>
+              <span class="value">${state.exp}</span>
+            </div>
+            <div class="dojo-resource-card credit">
+              <strong>credit</strong>
+              <span class="value">${state.credits}</span>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    function dojoStatusGroupHtml(title, entries, columns) {
+      const cells = entries.map(([label, value, className]) => `
+        <div class="dojo-status-cell ${className}">
+          <strong>${label}</strong>
+          <span class="value">${value}</span>
+        </div>
+      `).join("");
+      return `
+        <div class="dojo-status-group" style="--dojo-status-columns: ${columns}">
+          <div class="dojo-status-group-title">${title}</div>
+          <div class="dojo-status-group-grid">${cells}</div>
+        </div>
+      `;
+    }
+
+    function dojoServiceButtonHtml({ action, label, note, enabled }) {
+      return `
+        <button class="dojo-service-button" type="button" data-dojo-service="${action}" ${enabled ? "" : "disabled"}>
+          ${label}
+          <span>${note}</span>
+        </button>
+      `;
+    }
+
+    function dojoControlsHtml() {
+      const statButtons = STAT_CONFIG.map(stat => {
+        const cost = trainingCostFor(stat.key);
+        const capped = state[stat.key] >= STAT_CAP;
+        const enabled = !capped && state.exp >= cost;
+        const note = capped ? "修練完了" : `Lv${state.statLevels[stat.key]} -> ${state.statLevels[stat.key] + 1}`;
+        return dojoButtonHtml({
+          kind: "stat",
+          target: stat.key,
+          label: stat.label,
+          note: `${note} / 現在 ${state[stat.key]}`,
+          cost: capped ? "上限" : `${cost} EXP`,
+          enabled
+        });
+      }).join("");
+
+      const weaponButtons = [
+        {
+          kind: "weapon",
+          target: "melee",
+          label: "短刀",
+          level: state.meleeWeaponLevel,
+          damage: meleeWeaponDamage(),
+          cost: weaponUpgradeCost(state.meleeWeaponLevel)
+        },
+        {
+          kind: "weapon",
+          target: "shoot",
+          label: "銃",
+          level: state.shootingWeaponLevel,
+          damage: shootingWeaponDamage(),
+          cost: weaponUpgradeCost(state.shootingWeaponLevel)
+        },
+        {
+          kind: "weapon",
+          target: "jammer",
+          label: "ジャマー",
+          level: state.jammerLevel,
+          damage: jammerBonusSeconds(),
+          hitPenalty: jammerHitPenaltyBonus(),
+          cost: weaponUpgradeCost(state.jammerLevel)
+        }
+      ].map(weapon => {
+        const capped = weapon.level >= MAX_WEAPON_LEVEL;
+        const enabled = !capped && state.credits >= weapon.cost;
+        const note = weapon.target === "jammer"
+          ? capped
+            ? `猶予 +${weapon.damage.toFixed(1)}秒 / 命中低下 +${weapon.hitPenalty}%`
+            : `猶予 +${weapon.damage.toFixed(1)}秒 -> +${(weapon.damage + 0.5).toFixed(1)}秒 / 命中低下 +${weapon.hitPenalty}% -> +${weapon.hitPenalty + 2}%`
+          : capped ? `DMG ${weapon.damage} / 調整完了` : `DMG ${weapon.damage} -> ${weapon.damage + 1}`;
+        return dojoButtonHtml({
+          kind: "weapon",
+          target: weapon.target,
+          label: weapon.label,
+          note,
+          cost: capped ? "上限" : `${weapon.cost} CR`,
+          enabled,
+          complete: capped ? "調整完了" : ""
+        });
+      }).join("");
+
+      const skillConfig = [
+        ["iaido", "居合", ["隣接移動時に自動近接", "自動近接ダメージ1.5倍", "自動近接ダメージ2倍"]],
+        ["mindEye", "心眼", ["距離3 +15 / 距離4 +10", "罠/ワープ視認", "距離3 +25 / 距離4 +20"]],
+        ["dash", "疾駆", ["移動力2", "移動力3", "必ず先制"]],
+        ["immovable", "不動", ["ノックバック無効50%", "ノックバック無効75%", "ノックバック無効100%"]],
+        ["mizukagami", "水鏡", ["近接被弾時30%反撃", "近接被弾時50%反撃", "近接被弾時70%反撃"]]
+      ];
+      const skillButtons = skillConfig.map(([key, label, notes]) => {
+        const level = skillLevel(key);
+        const capped = level >= MAX_SKILL_LEVEL;
+        const cost = skillUpgradeCost(key);
+        return dojoButtonHtml({
+          kind: "skill",
+          target: key,
+          label,
+          note: capped ? `${notes[MAX_SKILL_LEVEL - 1]} / Lv${level}/${MAX_SKILL_LEVEL}` : `${notes[level]} / Lv${level} -> ${level + 1}`,
+          cost: capped ? "会得済" : `${cost} EXP`,
+          enabled: !capped && state.exp >= cost,
+          complete: capped ? "会得済" : ""
+        });
+      }).join("");
+
+      return `
+        <div class="dojo-list">
+          <div class="dojo-section"><h2>能力鍛錬</h2>${statButtons}</div>
+          <div class="dojo-section"><h2>装備調整</h2>${weaponButtons}</div>
+          <div class="dojo-section"><h2>奥義会得</h2>${skillButtons}</div>
+        </div>
+      `;
+    }
+
+    function dojoButtonHtml({ kind, target, label, note, cost, enabled, complete = "" }) {
+      return `
+        <button class="dojo-button" type="button" data-dojo-kind="${kind}" data-dojo-target="${target}" ${enabled ? "" : "disabled"}>
+          <strong>${label}</strong>
+          <span>${note}</span>
+          <span class="dojo-cost">${cost}</span>
+          ${complete ? `<span class="dojo-complete">${complete}</span>` : ""}
+        </button>
+      `;
+    }
+
+    function earnedBadges() {
+      const badges = [];
+      if (state.adventureStats.deepestFloor >= 5) badges.push("DEEP B5");
+      if (state.adventureStats.deepestFloor >= 10) badges.push("DEEP B10");
+      if (state.adventureStats.wins >= 100) badges.push("SLAYER 100");
+      if (STAT_CONFIG.every(stat => state[stat.key] >= STAT_CAP)) badges.push("MASTER");
+      return badges;
+    }
+
+    function earnedBadgesText() {
+      const badges = earnedBadges();
+      return badges.length ? badges.join(" / ") : "NONE";
+    }
+
+    function titleStatsSnapshot() {
+      return STAT_CONFIG.map(stat => ({
+        label: stat.label,
+        value: BASE_STATS[stat.key] + totalBonusFor(stat.key),
+        note: `素体 +${archetypeBonusFor(stat.key)} / Lv${1 + totalBonusFor(stat.key)}`
+      }));
+    }
+
+    function normalizedPlayerName() {
+      const value = (runnerNameInput?.value || state.playerName || currentArchetypeDefaultName()).trim();
+      return value.slice(0, 12) || currentArchetypeDefaultName();
+    }
+
+    function currentStatsSnapshot() {
+      return STAT_CONFIG.map(stat => ({
+        label: stat.label,
+        value: state[stat.key],
+        note: `Lv${state.statLevels[stat.key]} / NEXT ${trainingCostFor(stat.key)}EXP`
+      }));
+    }
+
+    function statListHtml(entries) {
+      return entries.map(entry => menuStatHtml(entry.label, entry.value, entry.note)).join("");
+    }
+
+    function menuStatHtml(label, value, note) {
+      return `
+        <div class="menu-stat">
+          <strong>${label}</strong>
+          <span>${note}</span>
+          <span class="value">${value}</span>
+        </div>
+      `;
+    }
+
+    function escapeHtml(value) {
+      return String(value)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+    }
+
+    function draw() {
+      const w = GAME_W;
+      const h = GAME_H;
+      ctx.clearRect(0, 0, w, h);
+      ctx.fillStyle = colors.bg;
+      ctx.fillRect(0, 0, w, h);
+      drawView(w, h);
+      drawFacingCompass(w, h);
+      drawHud(w, h);
+      drawLogPanel(w, h);
+      if (state.showMap) drawMap(w, h);
+      if (state.gameOver) drawGameOver(w, h);
+    }
+
+    function frames(x, y, w, h) {
+      return [1, 0.62, 0.36, 0.18, 0.08].map(scale => {
+        const fw = w * scale;
+        const fh = h * scale;
+        return { x: x + (w - fw) / 2, y: y + (h - fh) / 2, w: fw, h: fh };
+      });
+    }
+
+    function dungeonViewRect(w, h) {
+      const viewW = w * 0.75;
+      return { x: (w - viewW) / 2, y: h * 0.05, w: viewW, h: h * 0.52 };
+    }
+
+    function drawView(w, h) {
+      const view = dungeonViewRect(w, h);
+      const fs = frames(view.x, view.y, view.w, view.h);
+      const wallFill = "#020202";
+      const wallLine = neonWallColor();
+      drawDistantHaze(view, fs);
+      drawFloorTileHighlights(fs);
+      for (let depth = 1; depth < fs.length; depth += 1) {
+        const front = relativePos(0, depth);
+        const left = relativePos(-1, depth - 1);
+        const right = relativePos(1, depth - 1);
+        const nextLeft = relativePos(-1, depth);
+        const nextRight = relativePos(1, depth);
+        const hasLeft = isWall(left.x, left.y);
+        const hasRight = isWall(right.x, right.y);
+        const hasNextLeft = isWall(nextLeft.x, nextLeft.y);
+        const hasNextRight = isWall(nextRight.x, nextRight.y);
+        const near = fs[depth - 1];
+        const far = fs[depth];
+
+        if (hasLeft) {
+          wallPanel([
+            [near.x, near.y],
+            [far.x, far.y],
+            [far.x, far.y + far.h],
+            [near.x, near.y + near.h]
+          ], wallFill, wallLine, depth);
+        } else if (hasNextLeft) {
+          wallRect({ x: near.x, y: far.y, w: far.x - near.x, h: far.h }, wallFill, wallLine, depth);
+        }
+
+        if (hasRight) {
+          wallPanel([
+            [near.x + near.w, near.y],
+            [far.x + far.w, far.y],
+            [far.x + far.w, far.y + far.h],
+            [near.x + near.w, near.y + near.h]
+          ], wallFill, wallLine, depth);
+        } else if (hasNextRight) {
+          wallRect({ x: far.x + far.w, y: far.y, w: near.x + near.w - far.x - far.w, h: far.h }, wallFill, wallLine, depth);
+        }
+
+        if (isWall(front.x, front.y)) {
+          wallRect(far, wallFill, wallLine, depth);
+          return;
+        }
+
+        drawObject(front, far, depth);
+      }
+    }
+
+    function neonWallColor() {
+      return colors.neonWalls[(state.floor - 1) % colors.neonWalls.length];
+    }
+
+    function nextFloorColor() {
+      return colors.neonWalls[state.floor % colors.neonWalls.length];
+    }
+
+    function upperFloorColor() {
+      const index = Math.max(0, state.floor - 2) % colors.neonWalls.length;
+      return colors.neonWalls[index];
+    }
+
+    function drawDistantHaze(view, fs) {
+      const center = fs[fs.length - 1];
+      const cx = center.x + center.w / 2;
+      const cy = center.y + center.h / 2;
+      const gradient = ctx.createRadialGradient(cx, cy, 8, cx, cy, view.w * 0.32);
+      gradient.addColorStop(0, colors.distantHaze);
+      gradient.addColorStop(0.45, "rgba(60, 78, 96, 0.07)");
+      gradient.addColorStop(1, "rgba(0, 0, 0, 0)");
+      ctx.fillStyle = gradient;
+      ctx.fillRect(view.x, view.y, view.w, view.h);
+    }
+
+    function drawFloorTileHighlights(fs) {
+      for (let depth = 0; depth < fs.length - 1; depth += 1) {
+        const pos = depth === 0 ? { x: state.x, y: state.y } : relativePos(0, depth);
+        if (isStartTile(pos)) {
+          drawCeilingTileHighlight(ceilingTilePoints(fs, depth), upperFloorColor(), depth);
+        }
+        if (depth > 0 && same(pos, state.stairs)) {
+          drawFloorTileHighlight(floorTilePoints(fs, depth), nextFloorColor(), depth);
+        }
+        if (depth > 0 && canRevealHazards() && isWarpTile(pos)) {
+          drawFloorTileHighlight(floorTilePoints(fs, depth), "#9a7cff", depth);
+        }
+        if (depth > 0 && canRevealHazards() && isTrapTile(pos)) {
+          drawFloorTileHighlight(floorTilePoints(fs, depth), "#ff4fd8", depth);
+        }
+      }
+    }
+
+    function floorTilePoints(fs, depth) {
+      const near = fs[depth];
+      const far = fs[depth + 1];
+      return [
+        [near.x, near.y + near.h],
+        [near.x + near.w, near.y + near.h],
+        [far.x + far.w, far.y + far.h],
+        [far.x, far.y + far.h]
+      ];
+    }
+
+    function ceilingTilePoints(fs, depth) {
+      const near = fs[depth];
+      const far = fs[depth + 1];
+      return [
+        [near.x, near.y],
+        [far.x, far.y],
+        [far.x + far.w, far.y],
+        [near.x + near.w, near.y]
+      ];
+    }
+
+    function drawFloorTileHighlight(points, color, depth) {
+      const bounds = panelBounds(points);
+      const alpha = Math.max(0.16, 0.34 - depth * 0.035);
+      const gradient = ctx.createLinearGradient(bounds.x, bounds.y, bounds.x, bounds.y + bounds.h);
+      gradient.addColorStop(0, neonRgba(color, alpha * 0.28));
+      gradient.addColorStop(0.42, neonRgba(color, alpha));
+      gradient.addColorStop(1, neonRgba(color, alpha * 0.18));
+
+      ctx.save();
+      ctx.globalCompositeOperation = "lighter";
+      ctx.beginPath();
+      ctx.moveTo(points[0][0], points[0][1]);
+      for (const point of points.slice(1)) ctx.lineTo(point[0], point[1]);
+      ctx.closePath();
+      ctx.fillStyle = gradient;
+      ctx.shadowColor = color;
+      ctx.shadowBlur = Math.max(10, 24 - depth * 3);
+      ctx.fill();
+
+      ctx.globalAlpha = 0.55;
+      ctx.lineWidth = Math.max(1, 3 - depth * 0.35);
+      ctx.strokeStyle = color;
+      ctx.shadowBlur = Math.max(4, 14 - depth * 2);
+      strokePanelPath(points);
+      ctx.restore();
+    }
+
+    function drawCeilingTileHighlight(points, color, depth) {
+      const bounds = panelBounds(points);
+      const alpha = Math.max(0.14, 0.3 - depth * 0.03);
+      const gradient = ctx.createLinearGradient(bounds.x, bounds.y, bounds.x, bounds.y + bounds.h);
+      gradient.addColorStop(0, neonRgba(color, alpha * 0.18));
+      gradient.addColorStop(0.58, neonRgba(color, alpha));
+      gradient.addColorStop(1, neonRgba(color, alpha * 0.25));
+
+      ctx.save();
+      ctx.globalCompositeOperation = "lighter";
+      ctx.beginPath();
+      ctx.moveTo(points[0][0], points[0][1]);
+      for (const point of points.slice(1)) ctx.lineTo(point[0], point[1]);
+      ctx.closePath();
+      ctx.fillStyle = gradient;
+      ctx.shadowColor = color;
+      ctx.shadowBlur = Math.max(8, 20 - depth * 3);
+      ctx.fill();
+
+      ctx.globalAlpha = 0.5;
+      ctx.lineWidth = Math.max(1, 2.5 - depth * 0.3);
+      ctx.strokeStyle = color;
+      ctx.shadowBlur = Math.max(4, 12 - depth * 2);
+      strokePanelPath(points);
+      ctx.restore();
+    }
+
+    function drawWallShade(near, far, side) {
+      const shadeSteps = [0.26, 0.52, 0.78];
+      for (const step of shadeSteps) {
+        let topX;
+        let topY;
+        let bottomX;
+        let bottomY;
+
+        if (side === "left") {
+          topX = lerp(near.x, far.x, step);
+          topY = lerp(near.y, far.y, step);
+          bottomX = lerp(near.x, far.x, step);
+          bottomY = lerp(near.y + near.h, far.y + far.h, step);
+        } else {
+          topX = lerp(near.x + near.w, far.x + far.w, step);
+          topY = lerp(near.y, far.y, step);
+          bottomX = lerp(near.x + near.w, far.x + far.w, step);
+          bottomY = lerp(near.y + near.h, far.y + far.h, step);
+        }
+
+        line(topX, topY, bottomX, bottomY, colors.wallShade, 1);
+      }
+    }
+
+    function lerp(a, b, t) {
+      return a + (b - a) * t;
+    }
+
+    function drawObject(pos, frame, depth) {
+    }
+
+    function drawHud(w, h) {
+      const panelW = Math.min(860, w - 80);
+      const panel = {
+        x: (w - panelW) / 2,
+        y: h - 150,
+        w: panelW,
+        h: 110
+      };
+      roundRect(panel, colors.panel, colors.panelBorder, 2, 8);
+      const gap = 8;
+      const inner = {
+        x: panel.x + 14,
+        y: panel.y + 14,
+        w: panel.w - 28,
+        h: panel.h - 28
+      };
+      const diverW = 116;
+      const abilityW = 288;
+      const gearW = 240;
+      const resourceW = inner.w - diverW - abilityW - gearW - gap * 3;
+      const diver = { x: inner.x, y: inner.y, w: diverW, h: inner.h };
+      const ability = { x: diver.x + diver.w + gap, y: inner.y, w: abilityW, h: inner.h };
+      const gear = { x: ability.x + ability.w + gap, y: inner.y, w: gearW, h: inner.h };
+      const resource = { x: gear.x + gear.w + gap, y: inner.y, w: resourceW, h: inner.h };
+
+      drawDungeonInfoSection(diver);
+      drawStatusSection(ability, "ABILITY", [
+        ["MEL", state.meleeSkill, colors.green],
+        ["SHOT", state.shootingSkill, colors.green],
+        ["AGI", state.agility, colors.green],
+        ["TOU", state.toughness, colors.green]
+      ]);
+      drawStatusSection(gear, "EQUIP", [
+        ["KNIFE", meleeWeaponDamage(), colors.gold],
+        ["GUN", shootingWeaponDamage(), colors.gold],
+        ["JAMMER", state.jammerLevel, colors.gold]
+      ]);
+      drawStatusSection(resource, "RESOURCE", [
+        ["EXP", state.exp, colors.hpFill],
+        ["CR", state.credits, colors.gold]
+      ]);
+    }
+
+    function drawLogPanel(w, h) {
+      const logH = 116;
+      const totalW = Math.min(860, w - 80);
+      const gap = 10;
+      const portrait = {
+        x: (w - totalW) / 2,
+        y: h - 274,
+        w: logH,
+        h: logH
+      };
+      const panel = {
+        x: portrait.x + portrait.w + 10,
+        y: portrait.y,
+        w: Math.max(220, totalW - portrait.w - gap),
+        h: logH
+      };
+      drawDungeonPortrait(portrait);
+      roundRect(panel, "rgba(8, 12, 18, 0.9)", colors.panelBorder, 1, 8);
+      text("LOG", panel.x + 16, panel.y + 22, 12, colors.muted, "850");
+      const logs = state.log.length > 0 ? state.log.slice(0, 3) : ["No events yet."];
+      logs.forEach((entry, index) => {
+        text(entry, panel.x + 16, panel.y + 48 + index * 24, 15, colors.line, "650");
+      });
+    }
+
+    function drawDungeonPortrait(r) {
+      const image = characterImageFor(currentArchetype().file);
+      roundRect(r, "rgba(8, 12, 18, 0.9)", colors.panelBorder, 1, 8);
+      if (!image || !image.complete || image.naturalWidth === 0) {
+        text(currentArchetype().label.slice(0, 2), r.x + 13, r.y + 36, 18, colors.gold, "900");
+        return;
+      }
+
+      ctx.save();
+      roundedClip(r, 8);
+      const scale = Math.max(r.w / image.naturalWidth, r.h / image.naturalHeight);
+      const drawW = image.naturalWidth * scale;
+      const drawH = image.naturalHeight * scale;
+      const dx = r.x + (r.w - drawW) / 2;
+      const dy = r.y + (r.h - drawH) * 0.18;
+      ctx.drawImage(image, dx, dy, drawW, drawH);
+      ctx.restore();
+
+      strokeRect(r, colors.panelBorder, 1);
+    }
+
+    function characterImageFor(file) {
+      if (characterImageCache.has(file)) return characterImageCache.get(file);
+      const image = new Image();
+      image.onload = draw;
+      image.src = file;
+      characterImageCache.set(file, image);
+      return image;
+    }
+
+    function drawFacingCompass(w, h) {
+      const dir = DIRECTION_LABELS[state.dir];
+      const accent = neonWallColor();
+      const view = dungeonViewRect(w, h);
+      const viewCenterX = view.x + view.w / 2;
+      const viewTopY = view.y;
+
+      ctx.save();
+      ctx.textAlign = "center";
+      ctx.shadowColor = accent;
+      ctx.shadowBlur = 14;
+      text(dir.short, viewCenterX, viewTopY + 34, 34, accent, "900");
+      ctx.restore();
+    }
+
+    function drawDungeonInfoSection(r) {
+      drawHudSectionFrame(r, "DIVER");
+      text(`B${state.floor}F`, r.x + 12, r.y + 40, 26, colors.line, "900");
+      drawPotionPanel(r.x + 2, r.y + 50);
+    }
+
+    function drawStatusSection(r, title, entries) {
+      drawHudSectionFrame(r, title);
+      const contentY = r.y + 30;
+      const contentH = r.h - 34;
+      const segment = r.w / entries.length;
+      entries.forEach(([label, value, color], index) => {
+        const px = r.x + index * segment + 10;
+        if (index > 0) {
+          ctx.save();
+          ctx.strokeStyle = "rgba(154, 168, 189, 0.18)";
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.moveTo(r.x + index * segment, contentY + 2);
+          ctx.lineTo(r.x + index * segment, r.y + r.h - 10);
+          ctx.stroke();
+          ctx.restore();
+        }
+        text(label, px, contentY + 10, 10, color, "850");
+        text(String(value), px, contentY + contentH - 2, 22, color, "900");
+      });
+    }
+
+    function drawHudSectionFrame(r, title) {
+      roundRect(r, colors.panelStrong, colors.panelBorder, 1, 8);
+      text(title, r.x + 10, r.y + 17, 10, colors.muted, "850");
+    }
+
+    function drawPotionPanel(x, y) {
+      const dotW = 7;
+      const dotH = 15;
+      const gap = 3;
+      const padX = 8;
+      const padY = 6;
+      const panel = {
+        x,
+        y,
+        w: padX * 2 + MAX_POTIONS * dotW + (MAX_POTIONS - 1) * gap,
+        h: padY * 2 + dotH
+      };
+      roundRect(panel, "rgba(92, 62, 14, 0.35)", "rgba(240, 196, 65, 0.48)", 1, 8);
+
+      for (let index = 0; index < MAX_POTIONS; index += 1) {
+        const active = index < state.potions;
+        const dot = {
+          x: panel.x + padX + index * (dotW + gap),
+          y: panel.y + padY,
+          w: dotW,
+          h: dotH
+        };
+        roundRect(dot, active ? colors.potionActive : "rgba(240, 196, 65, 0.08)", active ? "rgba(255, 220, 138, 0.85)" : "rgba(240, 196, 65, 0.3)", 1, 5);
+        if (active) {
+          ctx.save();
+          ctx.globalCompositeOperation = "lighter";
+          ctx.shadowColor = colors.potionActive;
+          ctx.shadowBlur = 8;
+          roundRect(dot, "rgba(255, 220, 138, 0.45)", null, 1, 5);
+          ctx.restore();
+        }
+      }
+    }
+
+    function drawTrainingSummary(x, y, w, h) {
+      roundRect({ x, y, w, h }, colors.panelStrong, colors.panelBorder, 1, 8);
+      const entries = [
+        ["MEL", "meleeSkill", state.meleeSkill],
+        ["SHOT", "shootingSkill", state.shootingSkill],
+        ["AGI", "agility", state.agility],
+        ["TOU", "toughness", state.toughness]
+      ];
+      const segment = w / entries.length;
+
+      entries.forEach(([label, stat, value], index) => {
+        const px = x + index * segment + 12;
+        text(`${label} ${value}`, px, y + 15, 12, colors.line, "850");
+        text(value >= STAT_CAP ? "MASTERED" : `Lv${state.statLevels[stat]} > ${trainingCostFor(stat)}EXP`, px, y + 29, 11, colors.muted, "750");
+      });
+    }
+
+    function drawStatCard(x, y, w, h, label, value, accent) {
+      roundRect({ x, y, w, h }, colors.panelStrong, colors.panelBorder, 1, 8);
+      text(label, x + 12, y + 22, 12, accent, "850");
+      text(String(value), x + 12, y + 55, 24, accent, "900");
+    }
+
+    function drawMap(w, h) {
+      const accent = neonWallColor();
+      const cell = Math.max(7, Math.min(15, Math.floor(Math.min(w * 0.68 / MAP_W, h * 0.68 / MAP_H))));
+      const mapW = MAP_W * cell;
+      const mapH = MAP_H * cell;
+      const ox = (w - mapW) / 2;
+      const oy = (h - mapH) / 2;
+      ctx.save();
+      ctx.globalAlpha = 0.76;
+      fillRect({ x: 0, y: 0, w, h }, "#000");
+      ctx.restore();
+      fillRect({ x: ox - 18, y: oy - 48, w: mapW + 36, h: mapH + 72 }, "rgba(3, 8, 14, 0.94)");
+      strokeRect({ x: ox - 18, y: oy - 48, w: mapW + 36, h: mapH + 72 }, accent, 2);
+      text(`RADAR SCAN / B${state.floor}F`, ox, oy - 22, 16, accent, "900");
+      text("SPACE OR ESC: CLOSE", ox + mapW - 172, oy - 22, 13, colors.muted, "750");
+      for (let y = 0; y < MAP_H; y += 1) {
+        for (let x = 0; x < MAP_W; x += 1) {
+          fillRect(
+            { x: ox + x * cell, y: oy + y * cell, w: cell, h: cell },
+            state.map[y][x] === WALL ? "rgba(3, 8, 14, 0.98)" : neonRgba(accent, 0.24)
+          );
+        }
+      }
+      for (let gridX = 0; gridX <= MAP_W; gridX += 1) {
+        line(ox + gridX * cell, oy, ox + gridX * cell, oy + mapH, neonRgba(accent, 0.18), 0.5);
+      }
+      for (let gridY = 0; gridY <= MAP_H; gridY += 1) {
+        line(ox, oy + gridY * cell, ox + mapW, oy + gridY * cell, neonRgba(accent, 0.18), 0.5);
+      }
+      marker(ox, oy, cell, { x: START_X, y: START_Y }, upperFloorColor());
+      marker(ox, oy, cell, state.stairs, nextFloorColor());
+      circle(ox + state.x * cell + cell / 2, oy + state.y * cell + cell / 2, Math.max(4, cell * 0.65), colors.mapPlayer);
+      const d = dirVector();
+      line(
+        ox + state.x * cell + cell / 2,
+        oy + state.y * cell + cell / 2,
+        ox + state.x * cell + cell / 2 + d.x * cell * 1.2,
+        oy + state.y * cell + cell / 2 + d.y * cell * 1.2,
+        colors.mapFacing,
+        3
+      );
+    }
+
+    function drawGameOver(w, h) {
+      const panelW = Math.min(720, w * 0.6);
+      const view = dungeonViewRect(w, h);
+      const viewCenterX = view.x + view.w / 2;
+      const r = { x: Math.max(28, viewCenterX - panelW / 2), y: Math.max(52, h * 0.1), w: panelW, h: 500 };
+      const stats = state.adventureStats;
+      ctx.globalAlpha = 0.9;
+      fillRect(r, "#000");
+      ctx.globalAlpha = 1;
+      strokeRect(r, colors.red, 3);
+      text("GAME OVER", r.x + 30, r.y + 44, 28, colors.red, "900");
+      text(`${state.playerName} / ADVENTURE RESULT`, r.x + 32, r.y + 76, 14, colors.muted, "850");
+      drawResultBadges(r);
+
+      const rows = [
+        ["DEEPEST FLOOR", `B${stats.deepestFloor}F`],
+        ["STEPS", stats.steps],
+        ["DEFEATED", stats.wins],
+        ["TOTAL HIT RATE", hitRateText(stats.playerHits, stats.playerAttacks)],
+        ["MELEE HIT RATE", hitRateText(stats.meleeHits, stats.meleeAttacks)],
+        ["SHOOT HIT RATE", hitRateText(stats.shootHits, stats.shootAttacks)],
+        ["DAMAGE DEALT", stats.damageDealt],
+        ["DAMAGE TAKEN", stats.damageTaken],
+        ["EXP EARNED", stats.expEarned],
+        ["CREDIT EARNED", stats.creditsEarned],
+        ["CODE TRACE", hitRateText(stats.codeTraceSuccesses, stats.codeTraceAttempts)],
+        ["PHASE LOCK", hitRateText(stats.phaseLockSuccesses, stats.phaseLockAttempts)],
+        ["ANOMALY SCAN", hitRateText(stats.anomalyScanSuccesses, stats.anomalyScanAttempts)]
+      ];
+
+      rows.forEach(([label, value], index) => {
+        const col = index < 7 ? 0 : 1;
+        const row = index % 7;
+        const x = r.x + 34 + col * (r.w / 2);
+        const y = r.y + 118 + row * 34;
+        text(label, x, y, 12, colors.muted, "850");
+        text(String(value), x + 148, y, 17, colors.line, "900");
+      });
+
+      drawCognitiveProfile(r, stats);
+      text("ENTER: TITLE", r.x + 34, r.y + r.h - 30, 17, colors.gold, "900");
+    }
+
+    function drawResultBadges(panel) {
+      const badgeIcons = earnedBadges().map(badge => {
+        if (badge === "DEEP B5") return "B5";
+        if (badge === "DEEP B10") return "B10";
+        if (badge === "SLAYER 100") return "S100";
+        if (badge === "MASTER") return "M";
+        return badge.slice(0, 3);
+      });
+      const size = 34;
+      const gap = 8;
+      const startX = panel.x + panel.w - 34 - Math.max(1, badgeIcons.length) * size - Math.max(0, badgeIcons.length - 1) * gap;
+      const y = panel.y + 28;
+      if (!badgeIcons.length) {
+        text("NO BADGE", panel.x + panel.w - 112, y + 19, 12, colors.muted, "850");
+        return;
+      }
+      badgeIcons.forEach((label, index) => {
+        const x = startX + index * (size + gap);
+        const badge = { x, y, w: size, h: size };
+        ctx.save();
+        ctx.globalCompositeOperation = "lighter";
+        ctx.shadowColor = colors.gold;
+        ctx.shadowBlur = 12;
+        roundRect(badge, "rgba(240, 196, 65, 0.14)", colors.gold, 1.5, 9);
+        ctx.restore();
+        ctx.save();
+        ctx.fillStyle = colors.gold;
+        ctx.font = `900 ${label.length > 3 ? 9 : 11}px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace`;
+        ctx.textAlign = "center";
+        ctx.fillText(label, x + size / 2, y + 21);
+        ctx.restore();
+      });
+    }
+
+    function hitRateText(hits, attempts) {
+      if (!attempts) return "N/A";
+      return `${Math.round((hits / attempts) * 100)}% (${hits}/${attempts})`;
+    }
+
+    function drawCognitiveProfile(panel, stats) {
+      const profile = cognitiveProfileFor(stats);
+      const box = { x: panel.x + 30, y: panel.y + 360, w: panel.w - 60, h: 82 };
+      roundRect(box, "rgba(8, 12, 18, 0.92)", colors.panelBorder, 1, 8);
+      text("COGNITIVE PROFILE", box.x + 16, box.y + 24, 12, colors.muted, "850");
+      text(profile.title, box.x + 16, box.y + 50, 20, profile.color, "900");
+      text(profile.detail, box.x + 16, box.y + 70, 12, colors.line, "750");
+    }
+
+    function cognitiveProfileFor(stats) {
+      const entries = [
+        {
+          key: "code",
+          title: "SEQUENCE OPERATOR",
+          color: colors.blue,
+          success: stats.codeTraceSuccesses,
+          attempts: stats.codeTraceAttempts,
+          detail: "順序記憶と入力精度が高い。コード列の処理に強い。"
+        },
+        {
+          key: "phase",
+          title: "PHASE READER",
+          color: colors.gold,
+          success: stats.phaseLockSuccesses,
+          attempts: stats.phaseLockAttempts,
+          detail: "同期タイミングを読む力が高い。待って押す判断に強い。"
+        },
+        {
+          key: "anomaly",
+          title: "ANOMALY HUNTER",
+          color: colors.green,
+          success: stats.anomalyScanSuccesses,
+          attempts: stats.anomalyScanAttempts,
+          detail: "視覚探索と違和感検出が高い。群れの中の異物を見抜く。"
+        }
+      ].map(entry => ({
+        ...entry,
+        rate: entry.attempts ? entry.success / entry.attempts : -1
+      }));
+      const totalAttempts = entries.reduce((sum, entry) => sum + entry.attempts, 0);
+      if (totalAttempts < 3) {
+        return {
+          title: "INSUFFICIENT DATA",
+          color: colors.muted,
+          detail: "ジャミング試行数が少ない。さらなる接続ログが必要。"
+        };
+      }
+      const attempted = entries.filter(entry => entry.attempts > 0).sort((a, b) => b.rate - a.rate);
+      if (attempted.length >= 3 && attempted.every(entry => entry.rate >= 0.75)) {
+        return {
+          title: "BALANCED NEURODIVER",
+          color: colors.line,
+          detail: "記憶、同期、探索が高水準で安定している。"
+        };
+      }
+      const best = attempted[0];
+      if (!best || best.rate < 0.34) {
+        return {
+          title: "UNSTABLE SIGNAL",
+          color: colors.red,
+          detail: "ジャミング精度が不安定。装備か戦術の見直しが必要。"
+        };
+      }
+      return best;
+    }
+
+    function marker(ox, oy, cell, pos, color) {
+      fillRect({ x: ox + pos.x * cell + 1, y: oy + pos.y * cell + 1, w: cell - 2, h: cell - 2 }, color);
+    }
+
+    function roundRect(r, fill, stroke = null, width = 1, radius = 8) {
+      const rr = Math.min(radius, r.w / 2, r.h / 2);
+      ctx.beginPath();
+      ctx.moveTo(r.x + rr, r.y);
+      ctx.lineTo(r.x + r.w - rr, r.y);
+      ctx.quadraticCurveTo(r.x + r.w, r.y, r.x + r.w, r.y + rr);
+      ctx.lineTo(r.x + r.w, r.y + r.h - rr);
+      ctx.quadraticCurveTo(r.x + r.w, r.y + r.h, r.x + r.w - rr, r.y + r.h);
+      ctx.lineTo(r.x + rr, r.y + r.h);
+      ctx.quadraticCurveTo(r.x, r.y + r.h, r.x, r.y + r.h - rr);
+      ctx.lineTo(r.x, r.y + rr);
+      ctx.quadraticCurveTo(r.x, r.y, r.x + rr, r.y);
+      ctx.closePath();
+      ctx.fillStyle = fill;
+      ctx.fill();
+      if (stroke) {
+        ctx.strokeStyle = stroke;
+        ctx.lineWidth = width;
+        ctx.stroke();
+      }
+    }
+
+    function roundedClip(r, radius = 8) {
+      const rr = Math.min(radius, r.w / 2, r.h / 2);
+      ctx.beginPath();
+      ctx.moveTo(r.x + rr, r.y);
+      ctx.lineTo(r.x + r.w - rr, r.y);
+      ctx.quadraticCurveTo(r.x + r.w, r.y, r.x + r.w, r.y + rr);
+      ctx.lineTo(r.x + r.w, r.y + r.h - rr);
+      ctx.quadraticCurveTo(r.x + r.w, r.y + r.h, r.x + r.w - rr, r.y + r.h);
+      ctx.lineTo(r.x + rr, r.y + r.h);
+      ctx.quadraticCurveTo(r.x, r.y + r.h, r.x, r.y + r.h - rr);
+      ctx.lineTo(r.x, r.y + rr);
+      ctx.quadraticCurveTo(r.x, r.y, r.x + rr, r.y);
+      ctx.closePath();
+      ctx.clip();
+    }
+
+    function drawBar(x, y, w, h, rate, fill) {
+      roundRect({ x, y, w, h }, "#283449", null, 1, h / 2);
+      roundRect({ x, y, w: Math.max(h, w * rate), h }, fill, null, 1, h / 2);
+    }
+
+    function fillRect(r, color) {
+      ctx.fillStyle = color;
+      ctx.fillRect(r.x, r.y, r.w, r.h);
+    }
+
+    function strokeRect(r, color = colors.line, width = 2) {
+      ctx.strokeStyle = color;
+      ctx.lineWidth = width;
+      ctx.strokeRect(r.x, r.y, r.w, r.h);
+    }
+
+    function wallRect(r, fill, stroke, depth) {
+      const points = [
+        [r.x, r.y],
+        [r.x + r.w, r.y],
+        [r.x + r.w, r.y + r.h],
+        [r.x, r.y + r.h]
+      ];
+      wallPanel(points, fill, stroke, depth);
+    }
+
+    function wallPanel(points, fill, stroke, depth) {
+      polygon(points, fill);
+      fillPanelTint(points, stroke, depth);
+      drawWallScanlines(points, stroke, depth);
+      drawFloorReflection(points, stroke, depth);
+      const glow = Math.max(2, 5 - depth * 0.45);
+      const coreWidth = Math.max(0.72, 1.15 - depth * 0.05);
+      ctx.save();
+      ctx.lineJoin = "round";
+      ctx.lineCap = "round";
+      ctx.globalCompositeOperation = "lighter";
+
+      ctx.strokeStyle = stroke;
+      ctx.shadowColor = stroke;
+      ctx.shadowBlur = glow;
+      ctx.globalAlpha = 0.32;
+      ctx.lineWidth = coreWidth + 0.75;
+      strokePanelPath(points);
+
+      ctx.globalAlpha = 0.72;
+      ctx.shadowBlur = 0;
+      ctx.lineWidth = coreWidth;
+      strokePanelPath(points);
+      ctx.restore();
+    }
+
+    function drawWallScanlines(points, color, depth) {
+      const bounds = panelBounds(points);
+      if (bounds.w <= 4 || bounds.h <= 4) return;
+
+      const alpha = Math.max(0.012, 0.04 - depth * 0.005);
+      const pattern = scanlinePattern(color, alpha);
+      if (!pattern) return;
+
+      ctx.save();
+      ctx.beginPath();
+      ctx.moveTo(points[0][0], points[0][1]);
+      for (const point of points.slice(1)) ctx.lineTo(point[0], point[1]);
+      ctx.closePath();
+      ctx.clip();
+
+      ctx.globalCompositeOperation = "lighter";
+      ctx.fillStyle = pattern;
+      ctx.fillRect(bounds.x, bounds.y, bounds.w, bounds.h);
+
+      ctx.restore();
+    }
+
+    function scanlinePattern(color, alpha) {
+      const key = `${color}:${alpha.toFixed(3)}`;
+      if (scanlinePatternCache.has(key)) return scanlinePatternCache.get(key);
+
+      const patternCanvas = document.createElement("canvas");
+      patternCanvas.width = 4;
+      patternCanvas.height = 4;
+      const patternContext = patternCanvas.getContext("2d");
+      patternContext.clearRect(0, 0, patternCanvas.width, patternCanvas.height);
+      patternContext.fillStyle = neonRgba(color, alpha);
+      patternContext.fillRect(0, 0, patternCanvas.width, 1);
+
+      const pattern = ctx.createPattern(patternCanvas, "repeat");
+      scanlinePatternCache.set(key, pattern);
+      return pattern;
+    }
+
+    function lerpPoint(a, b, t) {
+      return [
+        a[0] + (b[0] - a[0]) * t,
+        a[1] + (b[1] - a[1]) * t
+      ];
+    }
+
+    function strokePanelPath(points) {
+      ctx.beginPath();
+      ctx.moveTo(points[0][0], points[0][1]);
+      for (const point of points.slice(1)) ctx.lineTo(point[0], point[1]);
+      ctx.closePath();
+      ctx.stroke();
+    }
+
+    function fillPanelTint(points, color, depth) {
+      const alpha = Math.max(0.025, 0.12 - depth * 0.018);
+      const bounds = panelBounds(points);
+      const gradient = ctx.createLinearGradient(bounds.x, bounds.y, bounds.x, bounds.y + bounds.h);
+      gradient.addColorStop(0, neonRgba(color, alpha));
+      gradient.addColorStop(0.48, neonRgba(color, alpha * 0.42));
+      gradient.addColorStop(1, "rgba(0, 0, 0, 0)");
+      ctx.save();
+      ctx.beginPath();
+      ctx.moveTo(points[0][0], points[0][1]);
+      for (const point of points.slice(1)) ctx.lineTo(point[0], point[1]);
+      ctx.closePath();
+      ctx.clip();
+      ctx.fillStyle = gradient;
+      ctx.fillRect(bounds.x, bounds.y, bounds.w, bounds.h);
+      ctx.restore();
+    }
+
+    function drawFloorReflection(points, color, depth) {
+      const bounds = panelBounds(points);
+      const bottomEdges = [];
+      for (let i = 0; i < points.length; i += 1) {
+        const a = points[i];
+        const b = points[(i + 1) % points.length];
+        const edgeY = (a[1] + b[1]) / 2;
+        const edgeIsLow = edgeY > bounds.y + bounds.h * 0.55;
+        if (edgeIsLow) bottomEdges.push([a, b]);
+      }
+
+      if (bottomEdges.length === 0) return;
+
+      const alpha = Math.max(0.018, 0.08 - depth * 0.012);
+      const offsets = [5, 10, 16, 23];
+      ctx.save();
+      ctx.globalCompositeOperation = "lighter";
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
+      for (const [a, b] of bottomEdges) {
+        offsets.forEach((offset, index) => {
+          const fade = alpha * (1 - index / offsets.length);
+          ctx.strokeStyle = neonRgba(color, fade);
+          ctx.lineWidth = Math.max(0.55, 1.3 - depth * 0.12 - index * 0.16);
+          ctx.beginPath();
+          ctx.moveTo(a[0], a[1] + offset);
+          ctx.lineTo(b[0], b[1] + offset);
+          ctx.stroke();
+        });
+      }
+      ctx.restore();
+    }
+
+    function panelBounds(points) {
+      const xs = points.map(point => point[0]);
+      const ys = points.map(point => point[1]);
+      const x = Math.min(...xs);
+      const y = Math.min(...ys);
+      return {
+        x,
+        y,
+        w: Math.max(...xs) - x,
+        h: Math.max(...ys) - y
+      };
+    }
+
+    function neonRgba(hex, alpha) {
+      const value = hex.replace("#", "");
+      const r = Number.parseInt(value.slice(0, 2), 16);
+      const g = Number.parseInt(value.slice(2, 4), 16);
+      const b = Number.parseInt(value.slice(4, 6), 16);
+      return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+    }
+
+    function line(x1, y1, x2, y2, color = colors.line, width = 2) {
+      ctx.strokeStyle = color;
+      ctx.lineWidth = width;
+      ctx.beginPath();
+      ctx.moveTo(x1, y1);
+      ctx.lineTo(x2, y2);
+      ctx.stroke();
+    }
+
+    function polygon(points, color) {
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.moveTo(points[0][0], points[0][1]);
+      for (const point of points.slice(1)) ctx.lineTo(point[0], point[1]);
+      ctx.closePath();
+      ctx.fill();
+    }
+
+    function circle(x, y, radius, color) {
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.arc(x, y, radius, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    function text(value, x, y, size = 16, color = colors.line, weight = "normal") {
+      ctx.fillStyle = color;
+      ctx.font = `${weight} ${size}px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace`;
+      ctx.fillText(value, x, y);
+    }
+
+    window.addEventListener("resize", resize);
+    window.addEventListener("message", event => {
+      if (!event.data || !state.combatOpen) return;
+      if (event.data.type === "combat-finished") {
+        showCombatResult(event.data);
+      }
+      if (event.data.type === "combat-return-request") {
+        requestCombatReturn();
+      }
+    });
+
+    function requestCombatReturn() {
+      if (!state.combatOpen) return;
+      if (state.pendingCombatResult) {
+        finishCombatPopup();
+        return;
+      }
+      state.combatReturnRequested = true;
+    }
+
+    window.addEventListener("keydown", event => {
+      if (event.target === runnerNameInput) {
+        if (event.code === "Enter") {
+          event.preventDefault();
+          restart();
+        }
+        return;
+      }
+      if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Space", "KeyB", "KeyP", "Escape", "Digit0", "Digit1", "Digit2", "Digit3", "Digit4", "Digit5", "Digit6", "Digit7", "Digit8", "Digit9", "Enter"].includes(event.code)) {
+        event.preventDefault();
+      }
+      if (state.combatOpen && state.pendingCombatResult && ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(event.code)) {
+        finishCombatPopup();
+        return;
+      }
+      if (state.mode === "title") {
+        if (event.code === "Enter") restart();
+        return;
+      }
+      if (state.combatOpen) {
+        return;
+      }
+      if (state.encounterPending) {
+        return;
+      }
+      if (state.showMap) {
+        if (event.code === "Space" || event.code === "Escape") {
+          toggleMap();
+        }
+        return;
+      }
+      if (event.code === "KeyP" || event.code === "Escape") {
+        togglePause();
+        return;
+      }
+      if (state.mode === "paused") {
+        return;
+      }
+      if (state.gameOver) {
+        if (event.code === "Enter") reborn();
+        return;
+      }
+      if (event.code === "ArrowUp") tryMove(relativePos(0, 1));
+      if (event.code === "ArrowDown") tryMove(relativePos(0, -1));
+      if (event.code === "ArrowLeft") {
+        state.dir = (state.dir + 3) % 4;
+        draw();
+      }
+      if (event.code === "ArrowRight") {
+        state.dir = (state.dir + 1) % 4;
+        draw();
+      }
+      if (event.code === "KeyB") buyPotion();
+      if (event.code === "Digit1") trainStat("meleeSkill");
+      if (event.code === "Digit2") trainStat("shootingSkill");
+      if (event.code === "Digit3") trainStat("agility");
+      if (event.code === "Digit4") trainStat("toughness");
+      if (event.code === "Digit5") upgradeWeapon("melee");
+      if (event.code === "Digit6") upgradeWeapon("shoot");
+      if (event.code === "Digit7") learnSkill("iaido");
+      if (event.code === "Digit8") learnSkill("mindEye");
+      if (event.code === "Digit9") learnSkill("dash");
+      if (event.code === "Digit0") learnSkill("immovable");
+      if (event.code === "Space") {
+        toggleMap();
+      }
+    });
+    combatContinueButton.addEventListener("click", finishCombatPopup);
+    combatFrame.addEventListener("load", focusCombatFrame);
+    startGameButton.addEventListener("click", restart);
+    continueGameButton.addEventListener("click", () => continueSavedGame());
+    resumeButton.addEventListener("click", resumeGame);
+    pauseRestartButton.addEventListener("click", showTitleConfirm);
+    titleConfirmButton.addEventListener("click", reborn);
+    titleCancelButton.addEventListener("click", hideTitleConfirm);
+    runnerNameInput.addEventListener("input", renderTitleMenu);
+    portraitSelect.addEventListener("click", event => {
+      const button = event.target.closest("button[data-archetype]");
+      if (!button) return;
+      state.archetypeKey = button.dataset.archetype;
+      state.playerName = currentArchetypeDefaultName();
+      runnerNameInput.value = state.playerName;
+      resetCustomStats();
+    });
+    saveSlotList.addEventListener("click", event => {
+      const loadButton = event.target.closest("button[data-save-load]");
+      if (loadButton && !loadButton.disabled) {
+        continueSavedGame(Number(loadButton.dataset.saveLoad));
+        return;
+      }
+      const deleteButton = event.target.closest("button[data-save-delete]");
+      if (deleteButton && !deleteButton.disabled) {
+        deleteSaveSlot(Number(deleteButton.dataset.saveDelete));
+      }
+    });
+    pauseStatList.addEventListener("click", event => {
+      const button = event.target.closest("button[data-dojo-kind]");
+      if (!button || button.disabled) return;
+      const kind = button.dataset.dojoKind;
+      const target = button.dataset.dojoTarget;
+      if (kind === "stat") trainStat(target);
+      if (kind === "weapon") upgradeWeapon(target);
+      if (kind === "skill") learnSkill(target);
+      renderPauseMenu();
+    });
+    pauseResourceList.addEventListener("click", event => {
+      const button = event.target.closest("button[data-dojo-service]");
+      if (!button || button.disabled) return;
+      if (button.dataset.dojoService === "potion") buyPotion();
+      if (button.dataset.dojoService === "radar") toggleMap();
+      renderPauseMenu();
+    });
+    renderTitleMenu();
+    resize();
+  </script>
+</body>
+</html>

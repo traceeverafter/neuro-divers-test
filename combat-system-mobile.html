@@ -1,0 +1,3675 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>NEURO DIVERS Mobile Combat</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --ink: #e8edf7;
+      --muted: #9aa8bd;
+      --line: #4d78a8;
+      --panel: #151d2b;
+      --panel-strong: #1c2738;
+      --blue: #3f92ff;
+      --red: #ff4a32;
+      --green: #43c383;
+      --gold: #d89a32;
+      --border: #2d3a50;
+      --frame: var(--stage-neon);
+      --shadow: 0 18px 50px rgba(0, 0, 0, .34);
+      --stage-neon: #00e5ff;
+      --stage-neon-rgb: 0, 229, 255;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Yu Gothic", sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 15% 10%, rgba(63, 146, 255, .18), transparent 28%),
+        radial-gradient(circle at 85% 18%, rgba(255, 74, 50, .12), transparent 24%),
+        linear-gradient(90deg, rgba(255, 255, 255, .03) 1px, transparent 1px),
+        linear-gradient(0deg, rgba(255, 255, 255, .03) 1px, transparent 1px),
+        linear-gradient(180deg, #0f1420, #090d14 70%);
+      background-size: auto, auto, 46px 46px, 46px 46px, auto;
+    }
+
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      background:
+        linear-gradient(90deg, rgba(0, 0, 0, .55), transparent 18%, transparent 82%, rgba(0, 0, 0, .55)),
+        radial-gradient(circle at center, transparent 12%, rgba(0, 0, 0, .48) 74%);
+      pointer-events: none;
+    }
+
+    main {
+      width: min(1080px, calc(100vw - 20px));
+      margin: 0 auto;
+      padding: 4px 0 5px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+      gap: 6px;
+      align-items: start;
+      padding: 6px;
+      border: 2px solid rgba(var(--stage-neon-rgb), .86);
+      border-radius: 8px;
+      background:
+        linear-gradient(180deg, rgba(12, 17, 27, .96), rgba(7, 10, 16, .98));
+      box-shadow:
+        0 28px 90px rgba(0, 0, 0, .62),
+        0 0 22px rgba(var(--stage-neon-rgb), .22),
+        inset 0 0 0 1px rgba(var(--stage-neon-rgb), .18);
+    }
+
+    .arena {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 6px;
+      padding: 0;
+      border: 0;
+      border-radius: 8px;
+      background: transparent;
+      box-shadow: none;
+    }
+
+    .encounter-scene {
+      position: relative;
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 0;
+      align-items: stretch;
+      margin-bottom: 0;
+      padding: 0;
+      border: 0;
+      border-radius: 8px;
+      background:
+        radial-gradient(circle at 50% 26%, rgba(var(--stage-neon-rgb), .15), transparent 36%),
+        linear-gradient(180deg, #05070b, #000 82%);
+      min-height: 204px;
+      overflow: hidden;
+    }
+
+    .encounter-scene::before {
+      content: "";
+      position: absolute;
+      left: 8%;
+      right: 8%;
+      bottom: 20%;
+      height: 1px;
+      background:
+        linear-gradient(90deg, transparent, rgba(var(--stage-neon-rgb), .72), transparent);
+      box-shadow: 0 0 34px rgba(var(--stage-neon-rgb), .45);
+      z-index: 0;
+    }
+
+    .scene-copy {
+      display: none;
+    }
+
+    .scene-title {
+      color: #f1d795;
+      font-size: 17px;
+      font-weight: 900;
+    }
+
+    .scene-text {
+      color: #c7d1e3;
+      line-height: 1.45;
+      font-weight: 650;
+      font-size: 14px;
+    }
+
+    .status-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+      margin-bottom: 0;
+    }
+
+    .fighter {
+      display: grid;
+      gap: 5px;
+      padding: 7px 9px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--panel);
+    }
+
+    .fighter.enemy {
+      text-align: right;
+    }
+
+    .name {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      font-size: 15px;
+      font-weight: 800;
+      min-width: 0;
+      flex-wrap: wrap;
+    }
+
+    .player-name-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto auto;
+      gap: 8px;
+      align-items: center;
+      min-height: 24px;
+    }
+
+    .player-name-row .name {
+      min-width: 0;
+    }
+
+    .fighter-header {
+      display: grid;
+      align-items: center;
+      min-height: 24px;
+    }
+
+    .enemy .name {
+      justify-content: flex-end;
+    }
+
+    #playerNameText {
+      color: #8cc8ff;
+      text-shadow: 0 0 10px rgba(76, 140, 255, .55);
+    }
+
+    #enemyName {
+      color: #ff8b7f;
+      text-shadow: 0 0 10px rgba(255, 74, 50, .55);
+    }
+
+    .hp-readout {
+      padding: 2px 7px;
+      border: 1px solid rgba(67, 195, 131, .35);
+      border-radius: 999px;
+      color: #b8f0ce;
+      background: rgba(21, 69, 48, .35);
+      font-size: 12px;
+      font-weight: 850;
+      white-space: nowrap;
+    }
+
+    .potion-readout {
+      justify-self: end;
+      display: grid;
+      grid-template-columns: repeat(10, 7px);
+      gap: 3px;
+      width: fit-content;
+      padding: 4px 6px;
+      border: 1px solid rgba(240, 196, 65, .48);
+      border-radius: 8px;
+      background: rgba(92, 62, 14, .35);
+    }
+
+    .skill-readout {
+      justify-self: end;
+      display: flex;
+      gap: 4px;
+      align-items: center;
+      min-height: 23px;
+    }
+
+    .skill-chip {
+      padding: 3px 7px;
+      border: 1px solid rgba(var(--stage-neon-rgb), .44);
+      border-radius: 999px;
+      color: #edf8ff;
+      background: rgba(24, 34, 53, .92);
+      font-size: 10px;
+      font-weight: 900;
+      line-height: 1;
+      white-space: nowrap;
+      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .08);
+    }
+
+    .potion-dot {
+      width: 7px;
+      height: 13px;
+      border: 1px solid rgba(240, 196, 65, .3);
+      border-radius: 999px;
+      background: rgba(240, 196, 65, .08);
+    }
+
+    .potion-dot.active {
+      border-color: rgba(255, 220, 138, .85);
+      background: #ffdc8a;
+      box-shadow:
+        0 0 10px rgba(255, 220, 138, .58),
+        inset 0 0 6px rgba(255, 255, 255, .38);
+      animation: potionPulse 1.6s ease-in-out infinite;
+    }
+
+    @keyframes potionPulse {
+      0%,
+      100% {
+        opacity: .72;
+      }
+
+      50% {
+        opacity: 1;
+      }
+    }
+
+    .hpbar {
+      height: 8px;
+      overflow: hidden;
+      border-radius: 999px;
+      background: #263246;
+    }
+
+    .hpfill {
+      width: 100%;
+      height: 100%;
+      border-radius: inherit;
+      background: linear-gradient(90deg, #32bd80, #a7cf45);
+      transition: width .18s ease;
+    }
+
+    .meta {
+      color: var(--muted);
+      font-weight: 650;
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+    .combat-stat-grid {
+      display: grid;
+      grid-template-columns: repeat(7, minmax(44px, 1fr));
+      gap: 4px;
+    }
+
+    .combat-stat-card {
+      min-height: 40px;
+      padding: 5px 6px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--panel-strong);
+    }
+
+    .combat-stat-card .stat-label {
+      display: block;
+      margin-bottom: 3px;
+      color: #8ce0b4;
+      font-size: 10px;
+      font-weight: 900;
+      line-height: 1;
+    }
+
+    .combat-stat-card .stat-value {
+      display: block;
+      color: #8ce0b4;
+      font-size: 18px;
+      font-weight: 950;
+      line-height: 1;
+    }
+
+    .combat-stat-card.weapon .stat-label,
+    .combat-stat-card.weapon .stat-value {
+      color: #f0c441;
+    }
+
+    .enemy-tag {
+      display: block;
+      justify-self: end;
+      max-width: 96%;
+      padding: 2px 0;
+      border: 0;
+      border-radius: 0;
+      background: transparent;
+      color: #f4f7fb;
+      font-size: 13px;
+      font-weight: 500;
+      line-height: 1.62;
+      letter-spacing: 0;
+      box-shadow: none;
+    }
+
+    .status-rowline {
+      display: flex;
+      justify-content: flex-end;
+      gap: 6px;
+      flex-wrap: wrap;
+      margin-top: 7px;
+    }
+
+    .status-chip {
+      display: inline-flex;
+      padding: 3px 7px;
+      border: 1px solid rgba(var(--stage-neon-rgb), .55);
+      border-radius: 999px;
+      color: #9cecff;
+      background: rgba(var(--stage-neon-rgb), .12);
+      font-size: 11px;
+      font-weight: 950;
+      line-height: 1;
+    }
+
+    .range-callout {
+      display: none;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 6px;
+      margin-bottom: 0;
+    }
+
+    #distanceCard {
+      display: none;
+    }
+
+    .callout {
+      min-height: 48px;
+      padding: 6px 9px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--panel);
+    }
+
+    .callout strong {
+      display: block;
+      margin-bottom: 2px;
+      font-size: 14px;
+    }
+
+    .callout.available {
+      border-color: rgba(24, 132, 86, .45);
+      background: rgba(31, 94, 65, .34);
+    }
+
+    .callout.warning {
+      border-color: rgba(182, 109, 0, .38);
+      background: rgba(122, 77, 20, .3);
+    }
+
+    .board-wrap {
+      position: absolute;
+      inset: 0;
+      z-index: 4;
+      display: block;
+      padding: 0;
+      pointer-events: none;
+      overflow: visible;
+    }
+
+    .labels {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(58px, 1fr));
+      width: 88%;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 800;
+      text-align: center;
+      opacity: 0;
+    }
+
+    .board {
+      position: absolute;
+      left: 8%;
+      right: 8%;
+      top: 43%;
+      height: 25%;
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      border: 1px solid rgba(var(--stage-neon-rgb), .7);
+      border-radius: 8px;
+      background:
+        linear-gradient(180deg, rgba(var(--stage-neon-rgb), .14), rgba(var(--stage-neon-rgb), .035)),
+        #05080c;
+      box-shadow:
+        0 0 18px rgba(var(--stage-neon-rgb), .22),
+        inset 0 0 22px rgba(var(--stage-neon-rgb), .08);
+      transform: none;
+    }
+
+    .move-end-panel {
+      position: absolute;
+      left: 50%;
+      top: 27%;
+      z-index: 10;
+      display: none;
+      align-items: center;
+      gap: 10px;
+      transform: translateX(-50%);
+      padding: 7px 10px;
+      border: 1px solid rgba(var(--stage-neon-rgb), .7);
+      border-radius: 8px;
+      background: rgba(5, 9, 15, .92);
+      box-shadow:
+        0 0 18px rgba(var(--stage-neon-rgb), .24),
+        inset 0 0 12px rgba(var(--stage-neon-rgb), .08);
+      color: #edf8ff;
+      font-size: 12px;
+      font-weight: 850;
+      pointer-events: auto;
+    }
+
+    .move-end-panel.active {
+      display: flex;
+    }
+
+    .move-end-panel button {
+      min-height: 26px;
+      padding: 0 12px;
+      border: 1px solid rgba(255, 220, 138, .72);
+      border-radius: 6px;
+      background: rgba(255, 220, 138, .12);
+      color: #ffdc8a;
+      font: inherit;
+      cursor: pointer;
+    }
+
+    .attack-bubble {
+      position: absolute;
+      left: var(--attack-bubble-x, 50%);
+      top: 7%;
+      z-index: 8;
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      justify-content: center;
+      transform: translateX(-50%);
+      max-width: 86%;
+      padding: 8px 12px;
+      border: 1px solid rgba(var(--stage-neon-rgb), .62);
+      border-radius: 8px;
+      background: rgba(5, 9, 15, .9);
+      color: #edf8ff;
+      font-size: 13px;
+      font-weight: 900;
+      box-shadow:
+        0 0 18px rgba(var(--stage-neon-rgb), .24),
+        inset 0 0 12px rgba(var(--stage-neon-rgb), .08);
+      white-space: nowrap;
+      pointer-events: none;
+    }
+
+    .attack-bubble::after {
+      content: "";
+      position: absolute;
+      left: 50%;
+      bottom: -7px;
+      width: 12px;
+      height: 12px;
+      transform: translateX(-50%) rotate(45deg);
+      border-right: 1px solid rgba(var(--stage-neon-rgb), .62);
+      border-bottom: 1px solid rgba(var(--stage-neon-rgb), .62);
+      background: rgba(5, 9, 15, .9);
+    }
+
+    .attack-bubble.enemy {
+      top: 7%;
+      border-color: rgba(255, 92, 92, .62);
+      box-shadow:
+        0 0 18px rgba(255, 92, 92, .2),
+        inset 0 0 12px rgba(255, 92, 92, .07);
+    }
+
+    .attack-bubble.enemy::after {
+      top: auto;
+      bottom: -7px;
+      border-right: 1px solid rgba(255, 92, 92, .62);
+      border-bottom: 1px solid rgba(255, 92, 92, .62);
+      border-left: 0;
+      border-top: 0;
+    }
+
+    .attack-bubble .attack-option {
+      color: #f4f7fb;
+    }
+
+    .attack-bubble .attack-rate {
+      color: #ffdc8a;
+    }
+
+    .attack-bubble.enemy .attack-rate {
+      color: #ff9f9f;
+    }
+
+    .attack-bubble .attack-evasion {
+      color: #8ce0b4;
+    }
+
+    .attack-bubble:empty {
+      display: none;
+    }
+
+    .board::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      z-index: 0;
+      background:
+        linear-gradient(90deg,
+          transparent calc(20% - .5px), rgba(var(--stage-neon-rgb), .54) calc(20% - .5px), rgba(var(--stage-neon-rgb), .54) calc(20% + .5px), transparent calc(20% + .5px),
+          transparent calc(40% - .5px), rgba(var(--stage-neon-rgb), .42) calc(40% - .5px), rgba(var(--stage-neon-rgb), .42) calc(40% + .5px), transparent calc(40% + .5px),
+          transparent calc(60% - .5px), rgba(var(--stage-neon-rgb), .42) calc(60% - .5px), rgba(var(--stage-neon-rgb), .42) calc(60% + .5px), transparent calc(60% + .5px),
+          transparent calc(80% - .5px), rgba(var(--stage-neon-rgb), .54) calc(80% - .5px), rgba(var(--stage-neon-rgb), .54) calc(80% + .5px), transparent calc(80% + .5px));
+      pointer-events: none;
+    }
+
+    .cell {
+      position: relative;
+      z-index: 1;
+      display: grid;
+      place-items: end center;
+      border-right: 1px solid rgba(var(--stage-neon-rgb), .26);
+      min-width: 0;
+    }
+
+    .cell:last-child {
+      border-right: 0;
+    }
+
+    .piece {
+      width: clamp(42px, 6vw, 64px);
+      height: clamp(42px, 6vw, 64px);
+      position: relative;
+      display: block;
+      transform: translateY(-12px) rotate(45deg);
+      opacity: .96;
+      border: 2px solid rgba(255, 255, 255, .72);
+      border-radius: 6px;
+      background: rgba(var(--stage-neon-rgb), .16);
+      filter:
+        drop-shadow(0 0 8px rgba(var(--stage-neon-rgb), .3))
+        drop-shadow(0 4px 6px rgba(0, 0, 0, .46));
+    }
+
+    .piece::before {
+      content: "";
+      position: absolute;
+      display: block;
+      pointer-events: none;
+    }
+
+    .piece::before {
+      inset: 20%;
+      border: 1px solid rgba(255, 255, 255, .45);
+      border-radius: 3px;
+    }
+
+    .piece.player {
+      border-color: rgba(191, 231, 255, .88);
+      background: rgba(76, 140, 255, .25);
+      box-shadow:
+        inset 0 0 18px rgba(76, 140, 255, .28),
+        0 0 20px rgba(76, 140, 255, .58);
+    }
+
+    .piece.enemy {
+      border-color: rgba(255, 184, 174, .78);
+      background: rgba(255, 74, 50, .18);
+      box-shadow:
+        inset 0 0 18px rgba(255, 74, 50, .22),
+        0 0 20px rgba(255, 74, 50, .5);
+    }
+
+    .piece-status {
+      position: absolute;
+      right: 22%;
+      bottom: calc(50% + 4px);
+      z-index: 3;
+      display: grid;
+      gap: 4px;
+      pointer-events: none;
+    }
+
+    .piece-roll {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      z-index: 4;
+      display: grid;
+      place-items: center;
+      min-width: 30px;
+      height: 30px;
+      padding: 0;
+      transform: translate(-50%, -50%) rotate(-45deg);
+      color: #fff;
+      font-size: 18px;
+      font-weight: 950;
+      line-height: 1;
+      pointer-events: none;
+      text-shadow:
+        0 0 8px rgba(255, 255, 255, .72),
+        0 1px 2px rgba(0, 0, 0, .9);
+      animation: rollFade 2s linear forwards;
+    }
+
+    @keyframes rollFade {
+      0% {
+        opacity: 1;
+      }
+
+      100% {
+        opacity: 0;
+      }
+    }
+
+    .piece-status-icon {
+      position: relative;
+      display: grid;
+      place-items: center;
+      width: 28px;
+      height: 24px;
+      border: 1px solid rgba(var(--stage-neon-rgb), .68);
+      border-radius: 999px;
+      background: rgba(5, 11, 18, .92);
+      font-size: 16px;
+      line-height: 1;
+      box-shadow:
+        0 0 12px rgba(var(--stage-neon-rgb), .28),
+        inset 0 0 9px rgba(var(--stage-neon-rgb), .1);
+    }
+
+    .piece-status-turn {
+      position: absolute;
+      right: -6px;
+      bottom: -7px;
+      display: grid;
+      place-items: center;
+      min-width: 16px;
+      height: 16px;
+      padding: 0 4px;
+      border: 1px solid rgba(255, 255, 255, .72);
+      border-radius: 999px;
+      background: rgba(0, 0, 0, .92);
+      color: #fff;
+      font-size: 10px;
+      font-weight: 950;
+      line-height: 1;
+      box-shadow: 0 0 10px rgba(var(--stage-neon-rgb), .32);
+    }
+
+    .piece-status-icon.fog {
+      border-color: rgba(156, 236, 255, .78);
+      color: #9cecff;
+    }
+
+    .piece-status-icon.paralyze {
+      border-color: rgba(255, 220, 138, .85);
+      color: #ffdc8a;
+      box-shadow:
+        0 0 14px rgba(255, 220, 138, .48),
+        inset 0 0 9px rgba(255, 220, 138, .14);
+    }
+
+    .piece.defeated {
+      animation: defeatedVanish .92s ease-in forwards;
+      transform-origin: 50% 50%;
+    }
+
+    @keyframes defeatedVanish {
+      0% {
+        opacity: .96;
+        transform: translateY(-12px) rotate(45deg) scale(1);
+        filter:
+          drop-shadow(0 0 8px rgba(var(--stage-neon-rgb), .3))
+          drop-shadow(0 4px 6px rgba(0, 0, 0, .46));
+      }
+
+      58% {
+        opacity: .72;
+        transform: translateY(-18px) rotate(45deg) scale(1.12);
+        filter:
+          drop-shadow(0 0 18px rgba(255, 255, 255, .62))
+          drop-shadow(0 0 24px rgba(var(--stage-neon-rgb), .48));
+      }
+
+      100% {
+        opacity: 0;
+        transform: translateY(-34px) rotate(45deg) scale(.22);
+        filter:
+          drop-shadow(0 0 2px rgba(255, 255, 255, 0))
+          drop-shadow(0 0 2px rgba(var(--stage-neon-rgb), 0));
+      }
+    }
+
+    .cell.target::after {
+      content: "";
+      position: absolute;
+      left: 18%;
+      right: 18%;
+      bottom: -24px;
+      height: 14px;
+      border: 2px solid rgba(var(--stage-neon-rgb), .9);
+      border-radius: 999px;
+      background: rgba(var(--stage-neon-rgb), .18);
+      box-shadow:
+        0 0 14px rgba(var(--stage-neon-rgb), .55),
+        inset 0 0 10px rgba(var(--stage-neon-rgb), .24);
+      pointer-events: none;
+    }
+
+    .cell.target-player::after {
+      border-color: rgba(63, 146, 255, .95);
+      background: rgba(63, 146, 255, .22);
+      box-shadow:
+        0 0 16px rgba(63, 146, 255, .66),
+        inset 0 0 10px rgba(63, 146, 255, .28);
+    }
+
+    .cell.target-enemy::after {
+      border-color: rgba(255, 74, 50, .95);
+      background: rgba(255, 74, 50, .2);
+      box-shadow:
+        0 0 16px rgba(255, 74, 50, .62),
+        inset 0 0 10px rgba(255, 74, 50, .24);
+    }
+
+    .controls {
+      position: relative;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 250px;
+      grid-template-rows: 282px;
+      gap: 10px;
+      padding: 6px;
+      border: 0;
+      border-radius: 0;
+      background: transparent;
+      box-shadow: none;
+      align-items: stretch;
+    }
+
+    .control-group {
+      display: grid;
+      gap: 6px;
+      grid-column: 2;
+      grid-row: 1;
+      position: relative;
+      z-index: 1;
+      height: 282px;
+      padding: 12px 14px;
+      border: 3px solid rgba(var(--stage-neon-rgb), .82);
+      border-radius: 22px;
+      background: #000;
+      box-shadow:
+        0 0 18px rgba(var(--stage-neon-rgb), .18),
+        inset 0 0 18px rgba(var(--stage-neon-rgb), .06);
+    }
+
+    .control-group:not(.is-internal) {
+      margin-top: 0;
+    }
+
+    .control-group.is-internal {
+      display: none;
+    }
+
+    .control-title {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 850;
+      text-transform: uppercase;
+    }
+
+    .button-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 4px;
+    }
+
+    .control-group:not(.is-internal) .button-grid {
+      height: 100%;
+      align-content: space-between;
+    }
+
+    .command-section {
+      display: grid;
+      gap: 4px;
+    }
+
+    .command-section-title {
+      display: none;
+    }
+
+    .type-grid {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    button {
+      min-height: 42px;
+      border: 1px solid #34445e;
+      border-radius: 8px;
+      background: #182235;
+      color: var(--ink);
+      font: inherit;
+      font-size: 18px;
+      font-weight: 900;
+      cursor: pointer;
+      transition: transform .12s ease, border-color .12s ease, background .12s ease;
+    }
+
+    button:hover:not(:disabled) {
+      transform: translateY(-1px);
+      border-color: #91a9c2;
+      background: #202d43;
+    }
+
+    .command-button {
+      position: relative;
+      display: grid;
+      grid-template-columns: 54px minmax(0, 1fr) 18px;
+      align-items: center;
+      gap: 8px;
+      min-height: 27px;
+      padding: 0 10px;
+      text-align: left;
+      color: #f4f7fb;
+      font-size: 14px;
+      letter-spacing: 0;
+    }
+
+    .command-category {
+      color: var(--muted);
+      font-size: 9px;
+      font-weight: 950;
+      line-height: 1;
+      letter-spacing: 0;
+    }
+
+    .command-label {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .command-button.selected {
+      border-color: rgba(var(--stage-neon-rgb), .9);
+      background:
+        linear-gradient(180deg, rgba(var(--stage-neon-rgb), .18), rgba(24, 34, 53, .92));
+      box-shadow:
+        0 0 16px rgba(var(--stage-neon-rgb), .28),
+        inset 0 0 0 1px rgba(255, 255, 255, .12);
+    }
+
+    .command-button.selected {
+      color: #fff;
+    }
+
+    .command-button.selected::after {
+      content: "→";
+      justify-self: end;
+      color: #fff;
+      font-size: 17px;
+      font-weight: 950;
+      line-height: 1;
+      text-shadow: 0 0 10px rgba(var(--stage-neon-rgb), .75);
+      animation: commandArrowPulse .72s ease-in-out infinite;
+    }
+
+    @keyframes commandArrowPulse {
+      0%,
+      100% {
+        opacity: .18;
+        transform: translateX(-3px);
+      }
+
+      50% {
+        opacity: 1;
+        transform: translateX(1px);
+      }
+    }
+
+    .primary {
+      color: #b8f0ce;
+    }
+
+    .danger {
+      color: #ffb1a5;
+    }
+
+    .support {
+      color: #ffdc8a;
+    }
+
+    .log-name-player {
+      color: #7db7ff;
+      font-weight: 900;
+    }
+
+    .log-name-enemy {
+      color: #ff7b6d;
+      font-weight: 900;
+    }
+
+    button:disabled {
+      cursor: not-allowed;
+      opacity: .42;
+    }
+
+    .type-button.selected {
+      border-color: #5d9be0;
+      background: #1d3552;
+      box-shadow: inset 0 0 0 2px rgba(28, 84, 137, .14);
+      color: #d7e9ff;
+    }
+
+    .command-button,
+    .primary,
+    .danger,
+    .support,
+    .hack {
+      border-color: #34445e;
+      background: #182235;
+      color: #f4f7fb;
+    }
+
+    .hack-panel {
+      position: fixed;
+      left: 50%;
+      top: 50%;
+      z-index: 2000;
+      display: none;
+      width: min(760px, calc(100vw - 28px));
+      max-height: min(90vh, 640px);
+      overflow: auto;
+      transform: translate(-50%, -50%);
+      padding: 22px 24px;
+      border: 1px solid rgba(var(--stage-neon-rgb), .82);
+      border-radius: 8px;
+      background: rgba(5, 11, 18, .94);
+      box-shadow:
+        0 0 0 9999px rgba(0, 0, 0, .68),
+        0 0 28px rgba(var(--stage-neon-rgb), .28),
+        inset 0 0 18px rgba(var(--stage-neon-rgb), .08);
+    }
+
+    .hack-panel.active {
+      display: grid;
+      gap: 14px;
+    }
+
+    .hack-title {
+      color: #9cecff;
+      font-size: 16px;
+      font-weight: 950;
+      letter-spacing: 0;
+    }
+
+    .hack-code {
+      position: relative;
+      min-height: 64px;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 16px;
+      align-items: center;
+    }
+
+    .hack-sequence {
+      position: relative;
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: center;
+      min-width: 0;
+    }
+
+    .anomaly-grid {
+      display: grid;
+      grid-template-columns: repeat(var(--anomaly-size, 4), 44px);
+      gap: 8px;
+      justify-content: start;
+      align-items: center;
+      min-width: 0;
+    }
+
+    .hack-countdown {
+      position: static;
+      z-index: 2;
+      transform: none;
+      width: 104px;
+      min-width: 104px;
+      padding: 4px 12px;
+      border: 1px solid rgba(var(--stage-neon-rgb), .62);
+      border-radius: 999px;
+      background: rgba(0, 0, 0, .72);
+      color: #ffffff;
+      font-size: 34px;
+      font-weight: 950;
+      font-variant-numeric: tabular-nums;
+      font-feature-settings: "tnum";
+      line-height: 1.1;
+      text-align: center;
+      text-shadow:
+        0 0 10px rgba(var(--stage-neon-rgb), .72),
+        0 0 18px rgba(var(--stage-neon-rgb), .32);
+      pointer-events: none;
+    }
+
+    .hack-countdown.danger {
+      border-color: rgba(255, 74, 50, .8);
+      color: #ff9a8a;
+      text-shadow:
+        0 0 10px rgba(255, 74, 50, .72),
+        0 0 18px rgba(255, 74, 50, .32);
+    }
+
+    .hack-key {
+      min-width: 44px;
+      padding: 7px 10px;
+      border: 1px solid rgba(var(--stage-neon-rgb), .42);
+      border-radius: 8px;
+      color: var(--hack-key-color, #d9fbff);
+      background: rgba(var(--stage-neon-rgb), .1);
+      font-size: 24px;
+      font-weight: 950;
+      text-align: center;
+      text-shadow: 0 0 10px color-mix(in srgb, var(--hack-key-color, #d9fbff) 60%, transparent);
+    }
+
+    .hack-key.done {
+      color: #8ce0b4;
+      border-color: rgba(140, 224, 180, .7);
+      background: rgba(24, 132, 86, .28);
+    }
+
+    .hack-key.error {
+      color: #ff9a8a;
+      border-color: rgba(255, 74, 50, .75);
+      background: rgba(131, 38, 28, .42);
+    }
+
+    .hack-key.result-glow {
+      color: #ffffff;
+      border-color: rgba(140, 224, 180, .96);
+      background: rgba(140, 224, 180, .3);
+      box-shadow:
+        0 0 18px rgba(140, 224, 180, .7),
+        inset 0 0 12px rgba(255, 255, 255, .16);
+    }
+
+    .hack-key.result-dim {
+      color: rgba(255, 154, 138, .7);
+      border-color: rgba(255, 74, 50, .44);
+      background: rgba(131, 38, 28, .22);
+      box-shadow: none;
+    }
+
+    .threshold-arena {
+      display: block;
+      position: relative;
+      width: 220px;
+      height: 220px;
+      overflow: hidden;
+      border: 1px solid rgba(var(--stage-neon-rgb), .34);
+      border-radius: 8px;
+      background:
+        radial-gradient(circle at 50% 50%, rgba(var(--stage-neon-rgb), .12), transparent 28%),
+        repeating-linear-gradient(90deg, rgba(var(--stage-neon-rgb), .08) 0 1px, transparent 1px 17px),
+        repeating-linear-gradient(180deg, rgba(255, 255, 255, .035) 0 1px, transparent 1px 11px),
+        rgba(0, 0, 0, .48);
+    }
+
+    .threshold-arena::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background:
+        linear-gradient(180deg, transparent 0 44%, rgba(var(--stage-neon-rgb), .18) 48%, transparent 54%),
+        linear-gradient(90deg, transparent 0 48%, rgba(255, 255, 255, .09) 50%, transparent 52%);
+      pointer-events: none;
+      opacity: .75;
+    }
+
+    .phase-core,
+    .phase-ring,
+    .phase-ring::before,
+    .phase-ring::after {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+    }
+
+    .phase-core {
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, .82);
+      box-shadow:
+        0 0 10px rgba(255, 255, 255, .38),
+        0 0 18px rgba(var(--stage-neon-rgb), .52);
+    }
+
+    .phase-ring {
+      --phase-color: rgba(var(--stage-neon-rgb), .86);
+      --phase-start: 22deg;
+      --phase-end: 64deg;
+      width: var(--phase-size, 156px);
+      height: var(--phase-size, 156px);
+      border-radius: 50%;
+      border: 1px solid rgba(var(--stage-neon-rgb), .34);
+      background:
+        conic-gradient(from var(--phase-angle, 0deg), transparent 0deg var(--phase-start), var(--phase-color) var(--phase-start) var(--phase-end), transparent var(--phase-end) 360deg);
+      box-shadow:
+        inset 0 0 14px rgba(var(--stage-neon-rgb), .1),
+        0 0 14px rgba(var(--stage-neon-rgb), .16);
+    }
+
+    .phase-ring::before {
+      content: "";
+      width: calc(var(--phase-size, 156px) - 30px);
+      height: calc(var(--phase-size, 156px) - 30px);
+      border-radius: 50%;
+      border: 1px solid rgba(255, 255, 255, .14);
+    }
+
+    .phase-ring.inner {
+      --phase-size: 102px;
+      --phase-color: rgba(255, 220, 138, .95);
+      border-color: rgba(255, 220, 138, .38);
+      box-shadow:
+        inset 0 0 12px rgba(255, 220, 138, .12),
+        0 0 14px rgba(255, 220, 138, .18);
+    }
+
+    .phase-ring.wide {
+      --phase-start: 25deg;
+      --phase-end: 61deg;
+    }
+
+    .phase-ring.narrow {
+      --phase-start: 39deg;
+      --phase-end: 47deg;
+    }
+
+    .phase-lock-line {
+      position: absolute;
+      left: 50%;
+      top: 10px;
+      bottom: 10px;
+      width: 1px;
+      background: linear-gradient(180deg, transparent, rgba(255, 255, 255, .72), transparent);
+      box-shadow: 0 0 12px rgba(255, 255, 255, .28);
+      pointer-events: none;
+    }
+
+    .threshold-arena.locked .phase-ring {
+      border-color: rgba(140, 224, 180, .95);
+      box-shadow:
+        inset 0 0 20px rgba(140, 224, 180, .22),
+        0 0 22px rgba(140, 224, 180, .46);
+    }
+
+    .threshold-arena.locked .phase-core,
+    .threshold-arena.locked .phase-lock-line {
+      background: rgba(140, 224, 180, .92);
+      box-shadow: 0 0 22px rgba(140, 224, 180, .72);
+    }
+
+    .hack-panel.result-success {
+      animation: hackSuccessFlash .95s ease-out 1;
+      border-color: rgba(140, 224, 180, .96);
+    }
+
+    .hack-panel.result-fail {
+      border-color: rgba(255, 74, 50, .58);
+      filter: saturate(.45) brightness(.74);
+    }
+
+    .hack-panel.result-fail .hack-key,
+    .hack-panel.result-fail .threshold-arena,
+    .hack-panel.result-fail .anomaly-grid {
+      opacity: .42;
+    }
+
+    @keyframes hackSuccessFlash {
+      0% {
+        box-shadow:
+          0 0 0 9999px rgba(0, 0, 0, .68),
+          0 0 28px rgba(var(--stage-neon-rgb), .28),
+          inset 0 0 18px rgba(var(--stage-neon-rgb), .08);
+      }
+      26% {
+        box-shadow:
+          0 0 0 9999px rgba(0, 0, 0, .5),
+          0 0 54px rgba(140, 224, 180, .78),
+          inset 0 0 36px rgba(140, 224, 180, .36);
+      }
+      100% {
+        box-shadow:
+          0 0 0 9999px rgba(0, 0, 0, .68),
+          0 0 28px rgba(var(--stage-neon-rgb), .28),
+          inset 0 0 18px rgba(var(--stage-neon-rgb), .08);
+      }
+    }
+
+    .hack-status {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 850;
+    }
+
+    .wide {
+      grid-column: 1 / -1;
+    }
+
+    .log {
+      grid-column: 1;
+      grid-row: 1;
+      position: relative;
+      z-index: 1;
+      height: 282px;
+      overflow: auto;
+      padding: 13px 16px;
+      border: 3px solid rgba(var(--stage-neon-rgb), .82);
+      border-radius: 22px;
+      background:
+        linear-gradient(90deg, #000 0%, rgba(0, 0, 0, .96) 30%, rgba(0, 0, 0, .46) 52%, rgba(0, 0, 0, 0) 100%),
+        linear-gradient(180deg, rgba(0, 0, 0, 0), rgba(0, 0, 0, .22)),
+        var(--enemy-log-image, url("enemy-log-bg.png")) right center / auto 118% no-repeat,
+        #000;
+      box-shadow:
+        0 0 18px rgba(var(--stage-neon-rgb), .18),
+        inset 0 0 18px rgba(var(--stage-neon-rgb), .06);
+      color: #cad4e5;
+      font-size: 14px;
+      line-height: 1.43;
+    }
+
+    .log p {
+      position: relative;
+      z-index: 1;
+      max-width: 62%;
+      margin: 0 0 5px;
+      text-shadow:
+        0 1px 2px rgba(0, 0, 0, .95),
+        0 0 8px rgba(0, 0, 0, .82);
+    }
+
+    .rules {
+      display: none;
+      grid-column: 1;
+      gap: 8px;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.55;
+    }
+
+    .rules p {
+      margin: 0;
+    }
+
+    .controls::after {
+      content: "STATUS";
+      grid-column: 1;
+      grid-row: 1;
+      align-self: center;
+      justify-self: center;
+      color: rgba(255, 255, 255, .92);
+      font-size: clamp(22px, 4vw, 42px);
+      font-weight: 900;
+      opacity: .08;
+      pointer-events: none;
+      letter-spacing: 0;
+    }
+
+    .controls::before {
+      display: none;
+    }
+
+    @media (max-width: 840px) {
+      main {
+        width: min(100vw - 20px, 720px);
+        padding-top: 8px;
+      }
+
+      .layout,
+      .status-row,
+      .range-callout,
+      .encounter-scene,
+      .controls {
+        grid-template-columns: 1fr;
+      }
+
+      .controls::before {
+        display: none;
+      }
+
+      .controls::after {
+        display: none;
+      }
+
+      .control-group,
+      .log {
+        grid-column: 1;
+      }
+
+      .log {
+        grid-row: auto;
+      }
+
+      .fighter.enemy,
+      .enemy .name {
+        text-align: left;
+        justify-content: flex-start;
+      }
+
+      .enemy-tag {
+        justify-self: start;
+        max-width: 100%;
+      }
+
+      .potion-readout {
+        justify-self: end;
+      }
+
+      .combat-stat-grid {
+        grid-template-columns: repeat(3, minmax(48px, 1fr));
+      }
+
+      .piece {
+        width: clamp(42px, 15vw, 64px);
+        height: clamp(72px, 24vw, 104px);
+        font-size: clamp(46px, 16vw, 68px);
+      }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <div class="layout">
+      <section class="arena" aria-label="戦闘フィールド">
+        <div class="encounter-scene" aria-label="遭遇シーン">
+          <div class="scene-copy">
+            <div class="scene-title" id="sceneTitle">闇の中から敵が現れた</div>
+            <div class="scene-text" id="sceneText">湿った石壁の向こうで、金属の擦れる音が近づいてくる。</div>
+          </div>
+          <div class="hack-panel" id="hackPanel" aria-live="polite">
+            <div class="hack-title" id="hackTitle">JAMMING</div>
+            <div class="hack-code" id="hackCode"></div>
+            <div class="hack-status" id="hackStatus"></div>
+          </div>
+          <div class="board-wrap">
+            <div class="labels" aria-hidden="true">
+              <span>左端</span><span></span><span>中央</span><span></span><span>右端</span>
+            </div>
+            <div class="attack-bubble" id="attackBubble"></div>
+            <div class="attack-bubble enemy" id="enemyAttackBubble"></div>
+            <div class="move-end-panel" id="moveEndPanel">
+              <span id="moveEndText">MOVE 1 LEFT</span>
+              <button id="moveEndButton" type="button">END TURN</button>
+            </div>
+            <div class="board" id="board" aria-label="5マスの戦闘ライン"></div>
+          </div>
+        </div>
+
+        <div class="status-row">
+          <div class="fighter">
+            <div class="player-name-row">
+              <div class="name"><span id="playerNameText">RUNNER</span><span class="hp-readout" id="playerHpText">HP 10/10</span></div>
+              <div class="skill-readout" id="playerSkillText" aria-label="獲得スキル"></div>
+              <div class="potion-readout" id="playerPotionText">
+                <span class="potion-dot active"></span>
+                <span class="potion-dot"></span>
+                <span class="potion-dot"></span>
+                <span class="potion-dot"></span>
+                <span class="potion-dot"></span>
+                <span class="potion-dot"></span>
+                <span class="potion-dot"></span>
+                <span class="potion-dot"></span>
+                <span class="potion-dot"></span>
+                <span class="potion-dot"></span>
+              </div>
+            </div>
+            <div class="hpbar"><div class="hpfill" id="playerHpFill"></div></div>
+            <div class="combat-stat-grid" id="playerMeta"></div>
+          </div>
+          <div class="fighter enemy">
+            <div class="fighter-header">
+              <div class="name"><span id="enemyName">敵キャラ</span><span class="hp-readout" id="enemyHpText">HP 10/10</span></div>
+            </div>
+            <div class="hpbar"><div class="hpfill" id="enemyHpFill"></div></div>
+            <div class="meta enemy-tag" id="enemyMeta"></div>
+          </div>
+        </div>
+
+        <div class="range-callout">
+          <div class="callout" id="distanceCard">
+            <strong id="distanceText">距離 4</strong>
+            <span id="distanceDetail">4マス離れています</span>
+          </div>
+          <div class="callout" id="meleeCard">
+            <strong id="meleeText">近接不可</strong>
+            <span id="meleeDetail">基本命中 90% / 隣接したら可能</span>
+          </div>
+          <div class="callout" id="shootCard">
+            <strong id="shootText">射撃可能</strong>
+            <span id="shootDetail">距離2: 80% / 距離3: 65% / 距離4: 50%</span>
+          </div>
+        </div>
+
+      </section>
+
+      <aside class="controls" aria-label="操作">
+        <div class="control-group is-internal">
+          <div class="control-title">敵タイプ</div>
+          <div class="button-grid type-grid">
+            <button class="type-button selected" id="meleeEnemyButton" data-enemy-type="melee">近接キャラ</button>
+            <button class="type-button" id="balancedEnemyButton" data-enemy-type="balanced">バランス型</button>
+            <button class="type-button" id="shooterEnemyButton" data-enemy-type="shooter">射撃キャラ</button>
+          </div>
+        </div>
+
+        <div class="control-group">
+          <div class="button-grid">
+            <div class="command-section">
+              <div class="command-section-title">MOVE</div>
+              <button class="command-button" id="backButton"><span class="command-category">MOVE</span><span class="command-label">BACK</span></button>
+              <button class="command-button" id="forwardButton"><span class="command-category">MOVE</span><span class="command-label">ADVANCE</span></button>
+            </div>
+            <div class="command-section">
+              <div class="command-section-title">ATTACK</div>
+              <button class="command-button primary" id="meleeButton"><span class="command-category">ATK</span><span class="command-label">MELEE</span></button>
+              <button class="command-button danger" id="shootButton"><span class="command-category">ATK</span><span class="command-label">SHOOT</span></button>
+            </div>
+            <div class="command-section">
+              <div class="command-section-title">HACK</div>
+              <button class="command-button hack" id="fogButton"><span class="command-category">JAM</span><span class="command-label">FOG</span></button>
+              <button class="command-button hack" id="paralyzeButton"><span class="command-category">JAM</span><span class="command-label">PARALYZE</span></button>
+            </div>
+            <div class="command-section">
+              <div class="command-section-title">ITEM</div>
+              <button class="command-button support" id="potionButton"><span class="command-category">ITEM</span><span class="command-label">POTION</span></button>
+            </div>
+          </div>
+        </div>
+
+        <div class="control-group is-internal">
+          <div class="control-title">進行</div>
+          <div class="button-grid">
+            <button id="waitButton">待機</button>
+            <button id="resetButton">リセット</button>
+          </div>
+        </div>
+
+        <div class="rules">
+          <p>近接: 隣のマスなら可能。基本70%に近接技量を足します。ダメージは近接武器を基準に少し上下します。</p>
+          <p>射撃: 隣接していなければ可能。距離別の基本値に射撃うまさを足します。</p>
+          <p>回避: 防御側の回避率ぶん、攻撃の最終命中率が下がります。</p>
+          <p>ステータス: 近接技量、射撃うまさ、敏捷性、頑強さから戦闘値が決まります。</p>
+          <p>個体差: 敵のHP、近接技量、射撃、敏捷、頑強には遭遇ごとに小さなばらつきがあります。</p>
+          <p>回復ポーション: HPを3-5回復。距離に関係なく使用できます。敵の所持数は0個75%、1個20%、2個5%。</p>
+          <p>スキル: 敏捷15以上で最大2マス移動。頑強15以上で被ダメージを1軽減。</p>
+          <p>ノックバック: 近接命中時、後ろに空きマスがあれば50%で1マス押し出します。</p>
+          <p>敵タイプ: 近接キャラ、バランス型、射撃キャラから選べます。</p>
+          <p>敵生成: 深い階ほど危険な個体が出やすくなります。</p>
+          <p>敵手番: 自動で行動します。タイプごとに近接、射撃、位置取りの優先度が変わります。</p>
+          <p>開始時: 敵タイプと初期配置はランダムに決まります。</p>
+          <p>先攻: 戦闘開始時に自キャラか敵キャラのどちらかがランダムに先攻になります。</p>
+          <p>前進/後退: 向きに合わせて1マス移動。同じマスには入れません。</p>
+        </div>
+
+        <div class="log" id="log" aria-live="polite"></div>
+      </aside>
+    </div>
+  </main>
+
+  <script>
+    const CELL_COUNT = 5;
+    const POTION_HEAL = 4;
+    const MAX_POTIONS = 10;
+    const COMBAT_PARAMS = new URLSearchParams(window.location.search);
+    const COMBAT_FLOOR = intParam("floor", 1);
+    const STARTING_POTIONS = Math.min(MAX_POTIONS, intParam("potions", 1));
+    const ENEMY_POTION_TABLE = [
+      { count: 0, chance: 75 },
+      { count: 1, chance: 20 },
+      { count: 2, chance: 5 }
+    ];
+    const ENEMY_ACTION_DELAY = 650;
+    const AGILITY_DASH_THRESHOLD = 18;
+    const TOUGHNESS_GUARD_THRESHOLD = 18;
+    const KNOCKBACK_CHANCE = 0.5;
+    const MELEE_HIT_BASE = 65;
+    const FOG_EVASION_PENALTY = 10;
+    const FOG_MELEE_PENALTY = 20;
+    const PARALYZE_EVASION_PENALTY = 15;
+    const PARALYZE_MELEE_PENALTY = 10;
+    const JAMMER_HIT_PENALTY_STEP = 2;
+    const SHOOTING_DISTANCE_BASE = { 2: 60, 3: 45, 4: 30 };
+    const SHOOTER_CLOSE_HIT_THRESHOLD = 30;
+    const SHOOTER_CLOSE_CHANCE = 0.5;
+    const HACK_KEYS = ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"];
+    const HACK_MODES = ["code", "threshold", "anomaly"];
+    const ANOMALY_COLORS = ["#00e5ff", "#ff3df2", "#7cff4f", "#ffb347", "#8f7cff", "#ff4d6d"];
+    const HACK_DIFFICULTY = {
+      1: { length: 3, time: 3000 },
+      2: { length: 4, time: 3000 },
+      3: { length: 5, time: 3000 },
+      4: { length: 6, time: 3000 },
+      5: { length: 7, time: 3000 }
+    };
+    const JAM_EFFECTS = {
+      fog: { label: "FOG", turns: 4 },
+      paralyze: { label: "PARALYZE", turns: 4 }
+    };
+    const NEON_WALLS = [
+      { hex: "#00e5ff", rgb: "0, 229, 255" },
+      { hex: "#ff3df2", rgb: "255, 61, 242" },
+      { hex: "#7cff4f", rgb: "124, 255, 79" },
+      { hex: "#ffb347", rgb: "255, 179, 71" },
+      { hex: "#8f7cff", rgb: "143, 124, 255" },
+      { hex: "#ff4d6d", rgb: "255, 77, 109" }
+    ];
+    const STAT_VARIANCE = {
+      meleeSkill: 2,
+      shootingSkill: 2,
+      agility: 2,
+      toughness: 1
+    };
+    const PLAYER_STATS = {
+      meleeSkill: intParam("meleeSkill", intParam("meleeDamage", 10)),
+      shootingSkill: intParam("shootingSkill", 10),
+      agility: intParam("agility", 10),
+      toughness: intParam("toughness", 10)
+    };
+    const PLAYER_WEAPONS = {
+      meleeName: stringParam("meleeWeaponName", "COMBAT KNIFE"),
+      shootName: stringParam("shootingWeaponName", "HANDGUN"),
+      meleeDamage: intParam("meleeWeaponDamage", 2),
+      shootDamage: intParam("shootingWeaponDamage", 2)
+    };
+    const MAX_SKILL_LEVEL = 3;
+    const PLAYER_JAMMER_LEVEL = Math.max(1, intParam("jammerLevel", 2));
+    const PLAYER_NAME = stringParam("playerName", "RUNNER").trim().slice(0, 12) || "RUNNER";
+    const PLAYER_START_HP = intParam("hp", PLAYER_STATS.toughness);
+    const PLAYER_SKILLS = {
+      iaido: skillParam("iaido"),
+      mindEye: skillParam("mindEye"),
+      dash: skillParam("dash"),
+      immovable: skillParam("immovable"),
+      mizukagami: skillParam("mizukagami")
+    };
+    const PLAYER_TRAP_DEBUFF = boolParam("playerDebuff", false);
+    const PLAYER_TRAP_DEBUFF_BATTLES = Math.max(1, intParam("playerDebuffBattles", 1));
+    const PLAYER_TRAP_DEBUFF_TYPE = ["fog", "paralyze"].includes(stringParam("playerDebuffType", ""))
+      ? stringParam("playerDebuffType", "")
+      : "fog";
+    const PLAYER_TRAP_EFFECTS = [
+      { type: "fog", turns: intParam("playerFogBattles", 0) },
+      { type: "paralyze", turns: intParam("playerParalyzeBattles", 0) }
+    ].filter(effect => effect.turns > 0);
+    if (PLAYER_TRAP_EFFECTS.length === 0 && PLAYER_TRAP_DEBUFF) {
+      PLAYER_TRAP_EFFECTS.push({ type: PLAYER_TRAP_DEBUFF_TYPE, turns: PLAYER_TRAP_DEBUFF_BATTLES });
+    }
+    const FORCED_ENEMY_STRENGTH = stringParam("enemyStrength", "");
+    const ENEMY_STRENGTH_LEVELS = {
+      weak: {
+        label: "弱い",
+        chance: 65,
+        weaponBonus: 0,
+        hpMultiplier: 1,
+        statOffset: { meleeSkill: -10, shootingSkill: -10, agility: -5, toughness: -2 }
+      },
+      even: {
+        label: "同程度",
+        chance: 30,
+        weaponBonus: 1,
+        hpMultiplier: 1,
+        statOffset: { meleeSkill: 0, shootingSkill: 0, agility: 0, toughness: 0 }
+      },
+      strong: {
+        label: "強い",
+        chance: 5,
+        weaponBonus: 1,
+        hpMultiplier: 1,
+        statOffset: { meleeSkill: 6, shootingSkill: 6, agility: 3, toughness: 1 }
+      },
+      boss: {
+        label: "ボス",
+        chance: 0,
+        weaponBonus: 2,
+        hpMultiplier: 1.75,
+        statOffset: { meleeSkill: 12, shootingSkill: 12, agility: 5, toughness: 6 }
+      }
+    };
+    const ENEMY_TYPES = {
+      melee: {
+        typeLabel: "近接キャラ",
+        portrait: "◆",
+        logImage: "enemy-log-melee.png",
+        scene: "錆びた刃を引きずる影が、狭い通路を塞いだ。距離を詰められれば危険だ。",
+        stats: {
+          meleeSkill: 25,
+          shootingSkill: 0,
+          agility: 10,
+          toughness: 12
+        },
+        attacks: {
+          melee: { label: "強打", damage: 3 },
+          shoot: { label: "牽制射撃", damage: 1 }
+        }
+      },
+      balanced: {
+        typeLabel: "バランス型",
+        portrait: "◆",
+        logImage: "enemy-log-balanced.png",
+        scene: "外套の奥で刃と魔弾の触媒が同時に光る。間合いを選ばない相手だ。",
+        stats: {
+          meleeSkill: 15,
+          shootingSkill: 15,
+          agility: 15,
+          toughness: 10
+        },
+        attacks: {
+          melee: { label: "斬撃", damage: 2 },
+          shoot: { label: "魔弾", damage: 2 }
+        }
+      },
+      shooter: {
+        typeLabel: "射撃キャラ",
+        portrait: "⌁",
+        logImage: "enemy-log-shooter.png",
+        scene: "暗がりの奥に青白い照準光が浮かぶ。離れたままでは撃ち抜かれる。",
+        stats: {
+          meleeSkill: 8,
+          shootingSkill: 25,
+          agility: 20,
+          toughness: 9
+        },
+        attacks: {
+          melee: { label: "護身格闘", damage: 1 },
+          shoot: { label: "精密射撃", damage: 3 }
+        }
+      }
+    };
+    const ENEMY_SPECIES = {
+      melee: [
+        { name: "CHROME ORC", logImage: "enemy-chrome-orc.png", statMod: { meleeSkill: 4, shootingSkill: -2, agility: -1, toughness: 2 }, attackMod: { melee: 1, shoot: 0 }, feature: "クローム化した腕部が、近接戦の圧力を生んでいる。" },
+        { name: "BONE OGRE", logImage: "enemy-bone-ogre.png", statMod: { meleeSkill: 2, shootingSkill: -4, agility: -2, toughness: 5 }, attackMod: { melee: 1, shoot: 0 }, feature: "骨格フレームが異様に厚く、倒れにくい。" },
+        { name: "MUMMY BRUTE", logImage: "enemy-mummy-brute.png", statMod: { meleeSkill: 3, shootingSkill: -3, agility: -2, toughness: 4 }, attackMod: { melee: 1, shoot: 0 }, feature: "乾いた筋繊維と補助モーターが、鈍いが重い一撃を支えている。" },
+        { name: "HELLFORGED DEMON", logImage: "enemy-hellforged-demon.png", statMod: { meleeSkill: 5, shootingSkill: 0, agility: 1, toughness: 1 }, attackMod: { melee: 2, shoot: 0 }, feature: "炉心めいた義肢が、刃の威力を底上げしている。" },
+        { name: "IRON DEMON", logImage: "enemy-iron-demon.png", statMod: { meleeSkill: 2, shootingSkill: -1, agility: -3, toughness: 6 }, attackMod: { melee: 1, shoot: 0 }, feature: "鉄殻の装甲が分厚く、正面からの削り合いに強い。" },
+        { name: "CHROME LIZARDMAN", logImage: "enemy-chrome-lizardman.png", statMod: { meleeSkill: 3, shootingSkill: -2, agility: 1, toughness: 3 }, attackMod: { melee: 1, shoot: 0 }, feature: "鱗状の装甲皮膚が、接近戦での粘り強さを生んでいる。" },
+        { name: "SAMURAI OGRE", logImage: "enemy-samurai-ogre.png", statMod: { meleeSkill: 7, shootingSkill: -5, agility: -1, toughness: 4 }, attackMod: { melee: 2, shoot: 0 }, feature: "鬼化した武者の戦闘記録が巨体に焼き付けられ、間合いに入った相手を断ち切る。" }
+      ],
+      balanced: [
+        { name: "GUTTER GOBLIN", logImage: "enemy-gutter-goblin.png", statMod: { meleeSkill: 0, shootingSkill: 2, agility: 4, toughness: -2 }, attackMod: { melee: 0, shoot: 0 }, feature: "細い身体と違法ブースターで、間合いの変化に強い。" },
+        { name: "NEON MUMMY", logImage: "enemy-neon-mummy.png", statMod: { meleeSkill: 1, shootingSkill: 1, agility: 0, toughness: 2 }, attackMod: { melee: 0, shoot: 1 }, feature: "包帯に編み込まれた導線が、魔弾の出力を安定させている。" },
+        { name: "HEX SKELETON", logImage: "enemy-hex-skeleton.png", statMod: { meleeSkill: -1, shootingSkill: 3, agility: 1, toughness: 0 }, attackMod: { melee: 0, shoot: 1 }, feature: "肋骨の中で呪式チップが明滅し、射撃の精度を補正している。" },
+        { name: "WIRED ORC", logImage: "enemy-wired-orc.png", statMod: { meleeSkill: 3, shootingSkill: 1, agility: 0, toughness: 2 }, attackMod: { melee: 1, shoot: 0 }, feature: "神経配線が粗いぶん、反応よりも押し込みに寄っている。" },
+        { name: "CRYPT RUNNER", logImage: "enemy-crypt-runner.png", statMod: { meleeSkill: 1, shootingSkill: 1, agility: 3, toughness: -1 }, attackMod: { melee: 0, shoot: 0 }, feature: "墓所を走り抜ける軽量脚部で、位置取りが素早い。" },
+        { name: "SEWER RATMAN", logImage: "enemy-sewer-ratman.png", statMod: { meleeSkill: 1, shootingSkill: 0, agility: 5, toughness: -3 }, attackMod: { melee: 0, shoot: 0 }, feature: "下水区画で鍛えられた脚が、低い姿勢から素早く距離を変える。" },
+        { name: "NEON NINJA", logImage: "enemy-neon-ninja.png", statMod: { meleeSkill: 3, shootingSkill: 1, agility: 6, toughness: -2 }, attackMod: { melee: 1, shoot: 0 }, feature: "光学迷彩の残像を残しながら、刃の届く間合いへ滑り込む。" }
+      ],
+      shooter: [
+        { name: "SKELETON GUNNER", logImage: "enemy-skeleton-gunner.png", statMod: { meleeSkill: -3, shootingSkill: 4, agility: 1, toughness: 0 }, attackMod: { melee: 0, shoot: 1 }, feature: "骨の指が銃把に固定され、射線がほとんど揺れない。" },
+        { name: "WIRE GOBLIN", logImage: "enemy-wire-goblin.png", statMod: { meleeSkill: -4, shootingSkill: 3, agility: 5, toughness: -2 }, attackMod: { melee: 0, shoot: 0 }, feature: "露出したワイヤー脚で後退しながら撃つのが得意だ。" },
+        { name: "DEMON SNIPER", logImage: "enemy-demon-sniper.png", statMod: { meleeSkill: -2, shootingSkill: 6, agility: 1, toughness: -1 }, attackMod: { melee: 0, shoot: 2 }, feature: "片眼の赤い照準器が、遠距離の命中率を押し上げている。" },
+        { name: "MUMMY OPERATIVE", logImage: "enemy-mummy-operative.png", statMod: { meleeSkill: -1, shootingSkill: 3, agility: 2, toughness: 1 }, attackMod: { melee: 0, shoot: 1 }, feature: "古い軍用プロトコルで、冷静に距離を保とうとする。" },
+        { name: "ORC TRIGGERMAN", logImage: "enemy-orc-triggerman.png", statMod: { meleeSkill: 1, shootingSkill: 3, agility: -1, toughness: 2 }, attackMod: { melee: 0, shoot: 1 }, feature: "太い腕で反動を抑え込み、近距離射撃の火力を維持する。" },
+        { name: "DARK ELF WIZARD", logImage: "enemy-dark-elf-wizard.png", statMod: { meleeSkill: -4, shootingSkill: 5, agility: 2, toughness: -2 }, attackMod: { melee: 0, shoot: 1 }, feature: "黒い術式回路が指先に浮かび、妨害と魔弾を同時に制御している。" },
+        { name: "VOID KOMUSO", logImage: "enemy-void-komuso.png", statMod: { meleeSkill: -2, shootingSkill: 4, agility: 0, toughness: 1 }, attackMod: { melee: 0, shoot: 1 }, feature: "虚無僧笠の奥で無音の演算が巡り、尺八型デバイスから呪波を放つ。" }
+      ]
+    };
+    const ENEMY_TRAITS = [
+      { prefix: "GLITCH", statMod: { meleeSkill: -2, shootingSkill: 3, agility: 2, toughness: -1 }, attackMod: { melee: 0, shoot: 1 }, feature: "動作にノイズが混じるが、予測しにくい射撃パターンを持つ。" },
+      { prefix: "RAZOR", statMod: { meleeSkill: 4, shootingSkill: -1, agility: 1, toughness: -1 }, attackMod: { melee: 1, shoot: 0 }, feature: "刃物状の増設パーツが、接近戦の危険度を高めている。" },
+      { prefix: "BULWARK", statMod: { meleeSkill: 0, shootingSkill: -2, agility: -3, toughness: 5 }, attackMod: { melee: 0, shoot: 0 }, feature: "重装甲化されており、継戦能力が高い。" },
+      { prefix: "QUICK", statMod: { meleeSkill: 0, shootingSkill: 1, agility: 5, toughness: -2 }, attackMod: { melee: 0, shoot: 0 }, feature: "脚部の加速器がよく調整され、距離操作が速い。" },
+      { prefix: "NULL", statMod: { meleeSkill: 1, shootingSkill: 1, agility: 0, toughness: 0 }, attackMod: { melee: 0, shoot: 0 }, feature: "目立つ弱点は少ないが、動きに機械的な規則性がある。" }
+    ];
+    const ENEMY_SPECIES_FEATURE_VARIANTS = {
+      "CHROME ORC": [
+        "クローム化した腕部が、近接戦の圧力を生んでいる。",
+        "肩から肘にかけての義体が過剰に太く、壁ごと殴り抜くような構えを取る。",
+        "粗い呼吸音に混じって、腕部サーボの低い唸りが聞こえる。"
+      ],
+      "BONE OGRE": [
+        "骨格フレームが異様に厚く、倒れにくい。",
+        "白骨めいた外殻の奥で、古い油圧筋肉がゆっくり膨張している。",
+        "頭蓋に埋め込まれた赤い診断灯が、鈍重な殺意だけを示している。"
+      ],
+      "MUMMY BRUTE": [
+        "乾いた筋繊維と補助モーターが、鈍いが重い一撃を支えている。",
+        "包帯の隙間から硬化した人工筋肉が覗き、歩くたびに埃が落ちる。",
+        "腐食した拘束具を引きずりながら、力任せに間合いを詰めてくる。"
+      ],
+      "HELLFORGED DEMON": [
+        "炉心めいた義肢が、刃の威力を底上げしている。",
+        "胸部の熱源が暗赤色に脈打ち、周囲の湿気を一瞬で乾かす。",
+        "悪魔の輪郭を模した装甲の下で、熱暴走寸前の駆動音が響く。"
+      ],
+      "IRON DEMON": [
+        "鉄殻の装甲が分厚く、正面からの削り合いに強い。",
+        "鋳鉄のような皮膚に弾痕が重なり、どれも致命傷には届いていない。",
+        "重い足音が床を沈ませるたび、装甲板が不吉に擦れ合う。"
+      ],
+      "CHROME LIZARDMAN": [
+        "鱗状の装甲皮膚が、接近戦での粘り強さを生んでいる。",
+        "金属鱗の隙間に水滴が走り、爬虫類めいた瞳だけが冷たく光る。",
+        "低い姿勢で尾を揺らし、爪の届く角度を静かに探っている。"
+      ],
+      "SAMURAI OGRE": [
+        "鬼化した武者の戦闘記録が巨体に焼き付けられ、間合いに入った相手を断ち切る。",
+        "鬼面の奥で古い反逆者の戦闘コードが明滅し、刃筋だけが異様に澄んでいる。",
+        "細身の甲冑義体が沈黙したまま構え、次の一歩で首を落とす距離を測っている。"
+      ],
+      "GUTTER GOBLIN": [
+        "細い身体と違法ブースターで、間合いの変化に強い。",
+        "油と泥にまみれた小柄な影が、壊れた配管の陰からこちらを覗く。",
+        "薄い笑い声のあと、足首のブースターだけが不規則に瞬く。"
+      ],
+      "NEON MUMMY": [
+        "包帯に編み込まれた導線が、魔弾の出力を安定させている。",
+        "蛍光包帯の下で古い呪式回路が脈打ち、乾いた指先に光が集まる。",
+        "死体処理用の符号が全身に焼き付き、歩くたびに淡い残光を引く。"
+      ],
+      "HEX SKELETON": [
+        "肋骨の中で呪式チップが明滅し、射撃の精度を補正している。",
+        "空洞の眼窩に六角形の照準光が灯り、骨の指が静かに引き金へかかる。",
+        "骨盤に固定された古い制御盤が、死者の動作を無理やり再生している。"
+      ],
+      "WIRED ORC": [
+        "神経配線が粗いぶん、反応よりも押し込みに寄っている。",
+        "剥き出しの神経ケーブルが首筋で跳ね、痛覚を無視した前進を命じている。",
+        "太い顎を噛み鳴らしながら、荒い配線の義体で通路を塞ぐ。"
+      ],
+      "CRYPT RUNNER": [
+        "墓所を走り抜ける軽量脚部で、位置取りが素早い。",
+        "軽量化された脚部が床をほとんど鳴らさず、視界の端をすり抜ける。",
+        "墓標の破片をまとった細身の影が、距離だけを武器にしている。"
+      ],
+      "SEWER RATMAN": [
+        "下水区画で鍛えられた脚が、低い姿勢から素早く距離を変える。",
+        "濡れた毛並みの下で小型義肢が軋み、排水溝の臭いを連れてくる。",
+        "細い尾の先に巻かれたケーブルが、床の水面に小さな波紋を作る。"
+      ],
+      "NEON NINJA": [
+        "光学迷彩の残像を残しながら、刃の届く間合いへ滑り込む。",
+        "黒い装甲の輪郭だけがネオンで縁取られ、次の瞬間には位置がずれている。",
+        "マスクの奥の視線は読めず、刃だけが雨粒を細く裂いている。"
+      ],
+      "SKELETON GUNNER": [
+        "骨の指が銃把に固定され、射線がほとんど揺れない。",
+        "肘関節に組み込まれた安定器が、死者の腕を狙撃台のように固定している。",
+        "空の胸郭を抜ける風音に混じって、銃身の冷却音だけが残る。"
+      ],
+      "WIRE GOBLIN": [
+        "露出したワイヤー脚で後退しながら撃つのが得意だ。",
+        "細い脚部ケーブルが床を叩き、逃げ道を確保しながら銃口を向ける。",
+        "小柄な身体に不釣り合いな照準器が、こちらの動きをしつこく追っている。"
+      ],
+      "DEMON SNIPER": [
+        "片眼の赤い照準器が、遠距離の命中率を押し上げている。",
+        "角の根元に埋め込まれた照準演算機が、距離の不利を冷たく消していく。",
+        "暗がりの奥で赤い一点だけが止まり、次弾の軌道を確定している。"
+      ],
+      "MUMMY OPERATIVE": [
+        "古い軍用プロトコルで、冷静に距離を保とうとする。",
+        "包帯の下に残る部隊章が、今も射撃姿勢だけを正確に再現している。",
+        "乾いた身体に似合わず、動きは訓練された兵士のそれに近い。"
+      ],
+      "ORC TRIGGERMAN": [
+        "太い腕で反動を抑え込み、近距離射撃の火力を維持する。",
+        "短銃身の銃器を片手で構え、反動を筋力だけでねじ伏せる。",
+        "分厚い指が引き金を覆い、接近しても銃口の圧力が消えない。"
+      ],
+      "DARK ELF WIZARD": [
+        "黒い術式回路が指先に浮かび、妨害と魔弾を同時に制御している。",
+        "銀髪の影が紫の演算陣を開き、こちらの照準にノイズを流し込む。",
+        "長い耳の奥で微細な受信器が震え、迷宮そのものを触媒にしている。"
+      ],
+      "VOID KOMUSO": [
+        "虚無僧笠の奥で無音の演算が巡り、尺八型デバイスから呪波を放つ。",
+        "籠目の笠に青紫の点が灯り、吹き込まれた音のない波が空気を歪ませる。",
+        "顔の見えない僧形の影が、尺八型端末で通信線の奥を震わせている。"
+      ]
+    };
+    const ENEMY_TRAIT_FEATURE_VARIANTS = {
+      GLITCH: [
+        "動作にノイズが混じるが、予測しにくい射撃パターンを持つ。",
+        "一瞬だけ輪郭が乱れ、次の動作の予兆を読み取りにくい。",
+        "破損した同期信号が、攻撃のタイミングを奇妙にずらしている。"
+      ],
+      RAZOR: [
+        "刃物状の増設パーツが、接近戦の危険度を高めている。",
+        "外装の各所から薄い刃が覗き、すれ違うだけでも傷を負いそうだ。",
+        "肘や膝の刃が壁を削り、接近のたびに火花を散らす。"
+      ],
+      BULWARK: [
+        "重装甲化されており、継戦能力が高い。",
+        "追加装甲が急所を覆い、半端な攻撃では足を止められない。",
+        "防御用プレートが何層にも重なり、弱点の露出が少ない。"
+      ],
+      QUICK: [
+        "脚部の加速器がよく調整され、距離操作が速い。",
+        "足元の駆動音が短く跳ね、こちらの間合いを何度も外してくる。",
+        "軽量化された脚部が、攻撃後の退避までを一つの動作にしている。"
+      ],
+      NULL: [
+        "目立つ弱点は少ないが、動きに機械的な規則性がある。",
+        "余計な改造は少なく、標準化された戦闘動作だけが淡々と続く。",
+        "特徴は薄いが、そのぶん癖のない基礎性能で押してくる。"
+      ]
+    };
+    const PLAYER_ATTACKS = {
+      melee: { label: "近接攻撃", damage: PLAYER_WEAPONS.meleeDamage },
+      shoot: { label: "射撃", damage: PLAYER_WEAPONS.shootDamage }
+    };
+
+    function intParam(name, fallback) {
+      const value = Number.parseInt(COMBAT_PARAMS.get(name), 10);
+      return Number.isFinite(value) ? Math.max(0, value) : fallback;
+    }
+
+    function stringParam(name, fallback) {
+      return COMBAT_PARAMS.get(name) || fallback;
+    }
+
+    function boolParam(name, fallback) {
+      const value = COMBAT_PARAMS.get(name);
+      if (value === null) return fallback;
+      return value === "1" || value === "true";
+    }
+
+    function normalizedSkillLevel(value) {
+      if (typeof value === "number") return Math.max(0, Math.min(MAX_SKILL_LEVEL, Math.floor(value)));
+      return value ? 1 : 0;
+    }
+
+    function skillParam(name) {
+      const value = COMBAT_PARAMS.get(name);
+      if (value === null) return 0;
+      const number = Number.parseInt(value, 10);
+      if (Number.isFinite(number)) return normalizedSkillLevel(number);
+      return value === "true" ? 1 : 0;
+    }
+
+    function skillLevelFor(unit, skill) {
+      return normalizedSkillLevel(unit.skills?.[skill]);
+    }
+
+    const state = {
+      turn: "player",
+      gameOver: false,
+      battleReported: false,
+      defeatedSide: "",
+      battleStats: {
+        playerAttacks: 0,
+        playerHits: 0,
+        meleeAttacks: 0,
+        meleeHits: 0,
+        shootAttacks: 0,
+        shootHits: 0,
+        damageDealt: 0,
+        damageTaken: 0,
+        codeTraceAttempts: 0,
+        codeTraceSuccesses: 0,
+        phaseLockAttempts: 0,
+        phaseLockSuccesses: 0,
+        anomalyScanAttempts: 0,
+        anomalyScanSuccesses: 0
+      },
+      enemyThinking: false,
+      enemyTimer: null,
+      hack: null,
+      hackAttempts: { fog: 0, paralyze: 0 },
+      moveChainActive: false,
+      moveStepsRemaining: 0,
+      attackRolls: { player: null, enemy: null },
+      attackRollTimers: { player: null, enemy: null },
+      selectedCommand: "forward",
+      preferredCommand: "forward",
+      enemyType: "melee",
+      enemyStrength: "even",
+      player: { name: PLAYER_NAME, side: "player", pos: 0, hp: PLAYER_STATS.toughness, maxHp: PLAYER_STATS.toughness, potions: STARTING_POTIONS, stats: PLAYER_STATS, attacks: PLAYER_ATTACKS, statusEffects: [], skills: PLAYER_SKILLS },
+      enemy: { name: "CHROME ORC", side: "enemy", pos: 4, hp: ENEMY_TYPES.melee.stats.toughness, maxHp: ENEMY_TYPES.melee.stats.toughness, potions: STARTING_POTIONS, stats: ENEMY_TYPES.melee.stats, attacks: ENEMY_TYPES.melee.attacks, typeLabel: ENEMY_TYPES.melee.typeLabel, strengthLabel: ENEMY_STRENGTH_LEVELS.even.label, portrait: ENEMY_TYPES.melee.portrait, scene: ENEMY_TYPES.melee.scene, statusEffects: [], skills: {}, hackLevel: 1 },
+      log: [`戦闘開始。${PLAYER_NAME}の手番です。`]
+    };
+
+    const elements = {
+      board: document.querySelector("#board"),
+      attackBubble: document.querySelector("#attackBubble"),
+      enemyAttackBubble: document.querySelector("#enemyAttackBubble"),
+      moveEndPanel: document.querySelector("#moveEndPanel"),
+      moveEndText: document.querySelector("#moveEndText"),
+      moveEndButton: document.querySelector("#moveEndButton"),
+      turnDot: document.querySelector("#turnDot"),
+      turnText: document.querySelector("#turnText"),
+      playerNameText: document.querySelector("#playerNameText"),
+      playerSkillText: document.querySelector("#playerSkillText"),
+      playerHpText: document.querySelector("#playerHpText"),
+      enemyHpText: document.querySelector("#enemyHpText"),
+      playerPotionText: document.querySelector("#playerPotionText"),
+      playerHpFill: document.querySelector("#playerHpFill"),
+      enemyHpFill: document.querySelector("#enemyHpFill"),
+      playerMeta: document.querySelector("#playerMeta"),
+      enemyName: document.querySelector("#enemyName"),
+      enemyMeta: document.querySelector("#enemyMeta"),
+      enemyPortrait: document.querySelector("#enemyPortrait"),
+      sceneTitle: document.querySelector("#sceneTitle"),
+      sceneText: document.querySelector("#sceneText"),
+      distanceCard: document.querySelector("#distanceCard"),
+      meleeCard: document.querySelector("#meleeCard"),
+      shootCard: document.querySelector("#shootCard"),
+      distanceText: document.querySelector("#distanceText"),
+      distanceDetail: document.querySelector("#distanceDetail"),
+      meleeText: document.querySelector("#meleeText"),
+      meleeDetail: document.querySelector("#meleeDetail"),
+      shootText: document.querySelector("#shootText"),
+      shootDetail: document.querySelector("#shootDetail"),
+      backButton: document.querySelector("#backButton"),
+      forwardButton: document.querySelector("#forwardButton"),
+      meleeButton: document.querySelector("#meleeButton"),
+      shootButton: document.querySelector("#shootButton"),
+      fogButton: document.querySelector("#fogButton"),
+      paralyzeButton: document.querySelector("#paralyzeButton"),
+      potionButton: document.querySelector("#potionButton"),
+      waitButton: document.querySelector("#waitButton"),
+      resetButton: document.querySelector("#resetButton"),
+      enemyTypeButtons: document.querySelectorAll("[data-enemy-type]"),
+      log: document.querySelector("#log"),
+      hackPanel: document.querySelector("#hackPanel"),
+      hackTitle: document.querySelector("#hackTitle"),
+      hackCode: document.querySelector("#hackCode"),
+      hackStatus: document.querySelector("#hackStatus")
+    };
+    const COMMANDS = [
+      { key: "back", button: elements.backButton, run: () => move("back") },
+      { key: "forward", button: elements.forwardButton, run: () => move("forward") },
+      { key: "melee", button: elements.meleeButton, run: () => attack("melee") },
+      { key: "shoot", button: elements.shootButton, run: () => attack("shoot") },
+      { key: "fog", button: elements.fogButton, run: () => startHack("fog") },
+      { key: "paralyze", button: elements.paralyzeButton, run: () => startHack("paralyze") },
+      { key: "potion", button: elements.potionButton, run: () => usePotion() }
+    ];
+
+    let audioContext;
+
+    function getAudioContext() {
+      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+      if (!AudioContextClass) return null;
+      if (!audioContext) audioContext = new AudioContextClass();
+      if (audioContext.state === "suspended") audioContext.resume();
+      return audioContext;
+    }
+
+    function createNoiseBuffer(context, duration) {
+      const buffer = context.createBuffer(1, context.sampleRate * duration, context.sampleRate);
+      const data = buffer.getChannelData(0);
+      for (let index = 0; index < data.length; index += 1) {
+        data[index] = Math.random() * 2 - 1;
+      }
+      return buffer;
+    }
+
+    function playSlashSound() {
+      const context = getAudioContext();
+      if (!context) return;
+
+      const now = context.currentTime;
+      const noise = context.createBufferSource();
+      const filter = context.createBiquadFilter();
+      const gain = context.createGain();
+
+      noise.buffer = createNoiseBuffer(context, 0.16);
+      filter.type = "bandpass";
+      filter.frequency.setValueAtTime(1800, now);
+      filter.frequency.exponentialRampToValueAtTime(420, now + 0.14);
+      filter.Q.setValueAtTime(1.4, now);
+
+      gain.gain.setValueAtTime(0.0001, now);
+      gain.gain.exponentialRampToValueAtTime(0.34, now + 0.015);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.16);
+
+      noise.connect(filter).connect(gain).connect(context.destination);
+      noise.start(now);
+      noise.stop(now + 0.17);
+    }
+
+    function playBeamSound() {
+      const context = getAudioContext();
+      if (!context) return;
+
+      const now = context.currentTime;
+      const oscillator = context.createOscillator();
+      const modulator = context.createOscillator();
+      const modGain = context.createGain();
+      const gain = context.createGain();
+
+      oscillator.type = "sawtooth";
+      oscillator.frequency.setValueAtTime(1500, now);
+      oscillator.frequency.exponentialRampToValueAtTime(520, now + 0.12);
+      oscillator.frequency.exponentialRampToValueAtTime(180, now + 0.28);
+
+      modulator.type = "square";
+      modulator.frequency.setValueAtTime(45, now);
+      modGain.gain.setValueAtTime(55, now);
+      modulator.connect(modGain).connect(oscillator.frequency);
+
+      gain.gain.setValueAtTime(0.0001, now);
+      gain.gain.exponentialRampToValueAtTime(0.22, now + 0.025);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.3);
+
+      oscillator.connect(gain).connect(context.destination);
+      oscillator.start(now);
+      modulator.start(now);
+      oscillator.stop(now + 0.32);
+      modulator.stop(now + 0.32);
+    }
+
+    function playFootstepSound() {
+      const context = getAudioContext();
+      if (!context) return;
+
+      [0, 0.11].forEach((offset) => {
+        const now = context.currentTime + offset;
+        const noise = context.createBufferSource();
+        const filter = context.createBiquadFilter();
+        const gain = context.createGain();
+
+        noise.buffer = createNoiseBuffer(context, 0.08);
+        filter.type = "lowpass";
+        filter.frequency.setValueAtTime(210, now);
+        filter.Q.setValueAtTime(0.7, now);
+
+        gain.gain.setValueAtTime(0.0001, now);
+        gain.gain.exponentialRampToValueAtTime(0.22, now + 0.012);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.08);
+
+        noise.connect(filter).connect(gain).connect(context.destination);
+        noise.start(now);
+        noise.stop(now + 0.09);
+      });
+    }
+
+    function playAttackSound(kind) {
+      if (kind === "melee") {
+        playSlashSound();
+      } else if (kind === "shoot") {
+        playBeamSound();
+      }
+    }
+
+    function activeUnit() {
+      return state.turn === "player" ? state.player : state.enemy;
+    }
+
+    function passiveUnit() {
+      return state.turn === "player" ? state.enemy : state.player;
+    }
+
+    function distance() {
+      return Math.abs(state.player.pos - state.enemy.pos);
+    }
+
+    function canMelee() {
+      return distance() === 1;
+    }
+
+    function canShoot() {
+      return distance() > 1;
+    }
+
+    function canUsePotion(unit = activeUnit()) {
+      return unit.hp < maxHpFor(unit) && unit.potions > 0;
+    }
+
+    function hasStatus(unit, type) {
+      return Boolean(activeStatusEffect(unit, type));
+    }
+
+    function activeStatusEffect(unit, type) {
+      return unit.statusEffects?.find(effect => effect.type === type && effect.turns > 0) || null;
+    }
+
+    function addStatusEffect(unit, type, turns, power = 0) {
+      if (!unit.statusEffects) unit.statusEffects = [];
+      const existing = unit.statusEffects.find(effect => effect.type === type);
+      if (existing) {
+        existing.turns = Math.max(existing.turns, turns);
+        existing.power = Math.max(existing.power || 0, power);
+      } else {
+        unit.statusEffects.push({ type, turns, power });
+      }
+    }
+
+    function tickStatusEffects(unit) {
+      if (!unit.statusEffects) return;
+      unit.statusEffects.forEach(effect => {
+        effect.turns -= 1;
+      });
+      unit.statusEffects = unit.statusEffects.filter(effect => effect.turns > 0);
+    }
+
+    function playerActionBlocked() {
+      return state.turn === "enemy" && !state.enemyThinking;
+    }
+
+    function attackDataFor(unit, kind) {
+      return unit.attacks[kind];
+    }
+
+    function maxHpFor(unit) {
+      return unit.maxHp || unit.stats.toughness;
+    }
+
+    function evasionFor(unit) {
+      let evasion = unit.stats.agility;
+      if (hasStatus(unit, "fog")) evasion -= FOG_EVASION_PENALTY;
+      if (hasStatus(unit, "paralyze")) evasion -= PARALYZE_EVASION_PENALTY;
+      return Math.max(0, evasion);
+    }
+
+    function canDash(unit) {
+      if (unit.side === "player") return skillLevelFor(unit, "dash") >= 1;
+      return skillLevelFor(unit, "dash") >= 1 || unit.stats.agility >= AGILITY_DASH_THRESHOLD;
+    }
+
+    function hasImmovable(unit) {
+      if (unit.side === "player") return skillLevelFor(unit, "immovable") >= 1;
+      return skillLevelFor(unit, "immovable") >= 1 || unit.stats.toughness >= TOUGHNESS_GUARD_THRESHOLD;
+    }
+
+    function immovableBlockChance(unit) {
+      const level = skillLevelFor(unit, "immovable");
+      if (level >= 3) return 1;
+      if (level === 2) return 0.75;
+      if (level === 1) return 0.5;
+      if (unit.side !== "player" && unit.stats.toughness >= TOUGHNESS_GUARD_THRESHOLD) return 0.5;
+      return 0;
+    }
+
+    function skillTextFor(unit) {
+      const skills = [];
+      if (canDash(unit)) skills.push("疾駆");
+      if (hasImmovable(unit)) skills.push("不動");
+      if (skillLevelFor(unit, "iaido") >= 1) skills.push("居合");
+      if (skillLevelFor(unit, "mindEye") >= 1) skills.push("心眼");
+      if (skillLevelFor(unit, "mizukagami") >= 1) skills.push("水鏡");
+      return skills.length ? skills.join(",") : "なし";
+    }
+
+    function movementRangeFor(unit) {
+      const level = skillLevelFor(unit, "dash");
+      if (level >= 2) return 3;
+      if (level >= 1 || canDash(unit)) return 2;
+      return 1;
+    }
+
+    function meleeSkillFor(unit) {
+      return unit.stats.meleeSkill;
+    }
+
+    function baseAttackDamageFor(unit, attackData, kind) {
+      return attackData.damage;
+    }
+
+    function damageRangeFor(unit, attackData, kind) {
+      const baseDamage = baseAttackDamageFor(unit, attackData, kind);
+      return {
+        min: Math.max(1, baseDamage - 1),
+        max: baseDamage + 1
+      };
+    }
+
+    function rollAttackDamage(unit, attackData, kind) {
+      const range = damageRangeFor(unit, attackData, kind);
+      const roll = Math.random();
+      if (roll < 0.6) return attackData.damage;
+      if (roll < 0.8) return range.min;
+      return range.max;
+    }
+
+    function damageRangeTextFor(unit, attackData, kind) {
+      const range = damageRangeFor(unit, attackData, kind);
+      return `${range.min}-${range.max}`;
+    }
+
+    function shootingHitRatesFor(unit) {
+      return Object.fromEntries(
+        Object.entries(SHOOTING_DISTANCE_BASE).map(([shootDistance, baseRate]) => [
+          shootDistance,
+          Math.max(5, Math.min(95, fogAdjustedShootingRate(unit, baseRate + unit.stats.shootingSkill + mindEyeShootingBonus(unit, Number(shootDistance)), Number(shootDistance))))
+        ])
+      );
+    }
+
+    function mindEyeShootingBonus(unit, shootDistance) {
+      const level = skillLevelFor(unit, "mindEye");
+      if (level < 1) return 0;
+      if (shootDistance === 3) return level >= 3 ? 25 : 15;
+      if (shootDistance === 4) return level >= 3 ? 20 : 10;
+      return 0;
+    }
+
+    function fogAdjustedShootingRate(unit, rate, shootDistance = distance()) {
+      const effect = activeStatusEffect(unit, "fog");
+      if (!effect) return rate;
+      const farPenalty = shootDistance >= 3 ? 10 : 0;
+      return rate - 30 - farPenalty - jammerHitPenaltyBonus(effect);
+    }
+
+    function statusAdjustedMeleeRate(unit, rate) {
+      let adjusted = rate;
+      const fog = activeStatusEffect(unit, "fog");
+      const paralyze = activeStatusEffect(unit, "paralyze");
+      if (fog) adjusted -= FOG_MELEE_PENALTY + jammerHitPenaltyBonus(fog);
+      if (paralyze) adjusted -= PARALYZE_MELEE_PENALTY + jammerHitPenaltyBonus(paralyze);
+      return adjusted;
+    }
+
+    function jammerHitPenaltyPower() {
+      return Math.max(0, PLAYER_JAMMER_LEVEL - 1);
+    }
+
+    function jammerHitPenaltyBonus(effect) {
+      return Math.max(0, effect?.power || 0) * JAMMER_HIT_PENALTY_STEP;
+    }
+
+    function baseHitRateFor(attacker, attackData, currentDistance = distance()) {
+      if (attackData === attackDataFor(attacker, "melee")) {
+        return statusAdjustedMeleeRate(attacker, MELEE_HIT_BASE + meleeSkillFor(attacker));
+      }
+      if (attackData === attackDataFor(attacker, "shoot")) {
+        return shootingHitRatesFor(attacker)[currentDistance] ?? 0;
+      }
+      return 0;
+    }
+
+    function baseHitRate(attackData, currentDistance = distance()) {
+      return baseHitRateFor(activeUnit(), attackData, currentDistance);
+    }
+
+    function finalHitRateFor(attacker, attackData, defender, currentDistance = distance()) {
+      return Math.max(5, Math.min(95, baseHitRateFor(attacker, attackData, currentDistance) - evasionFor(defender)));
+    }
+
+    function finalHitRate(attackData, defender, currentDistance = distance()) {
+      return finalHitRateFor(activeUnit(), attackData, defender, currentDistance);
+    }
+
+    function toughnessReductionFor(defender, damage) {
+      const chance = Math.max(0, Math.min(95, defender.stats.toughness));
+      const roll = Math.floor(Math.random() * 100) + 1;
+      if (roll > chance) return { damage, reduced: 0, roll, chance };
+      const reduced = Math.floor(damage / 2);
+      return { damage: Math.max(1, damage - reduced), reduced, roll, chance };
+    }
+
+    function moveDelta(unit, direction) {
+      const towardEnemy = unit.side === "player" ? 1 : -1;
+      return direction === "forward" ? towardEnemy : -towardEnemy;
+    }
+
+    function canMoveSteps(unit, direction, steps) {
+      const delta = moveDelta(unit, direction);
+      const other = unit.side === "player" ? state.enemy : state.player;
+      for (let step = 1; step <= steps; step += 1) {
+        const target = unit.pos + delta * step;
+        if (target < 0 || target >= CELL_COUNT || target === other.pos) return false;
+      }
+      return true;
+    }
+
+    function moveStepsFor(unit, direction) {
+      for (let steps = movementRangeFor(unit); steps >= 1; steps -= 1) {
+        if (canMoveSteps(unit, direction, steps)) return steps;
+      }
+      return 0;
+    }
+
+    function canMove(unit, direction) {
+      const target = moveStepsFor(unit, direction);
+      return target > 0;
+    }
+
+    function canMoveOneStep(unit, direction) {
+      return canMoveSteps(unit, direction, 1);
+    }
+
+    function clearMoveChain() {
+      state.moveChainActive = false;
+      state.moveStepsRemaining = 0;
+    }
+
+    function beginMoveChain(unit) {
+      state.moveChainActive = true;
+      state.moveStepsRemaining = movementRangeFor(unit);
+    }
+
+    function finishMoveChain() {
+      if (!state.moveChainActive) return;
+      clearMoveChain();
+      finishAction();
+    }
+
+    function maybeAutoIaido(unit) {
+      const level = skillLevelFor(unit, "iaido");
+      if (level <= 0 || distance() !== 1) return false;
+      const defender = unit.side === "player" ? state.enemy : state.player;
+      if (unit.hp <= 0 || defender.hp <= 0) return false;
+      playAttackSound("melee");
+      addLog(`${unit.name}の居合が発動。`);
+      performAttack(unit, defender, "melee", {
+        source: "居合",
+        damageMultiplier: iaidoDamageMultiplier(level)
+      });
+      return true;
+    }
+
+    function shooterCloseSteps() {
+      if (!["shooter", "balanced"].includes(state.enemyType) || distance() <= 2) return 0;
+      const maxSteps = Math.min(movementRangeFor(state.enemy), distance() - 2);
+      for (let steps = maxSteps; steps >= 1; steps -= 1) {
+        if (canMoveSteps(state.enemy, "forward", steps)) return steps;
+      }
+      return 0;
+    }
+
+    function knockbackTargetFor(attacker, defender) {
+      const direction = Math.sign(defender.pos - attacker.pos);
+      const target = defender.pos + direction;
+      if (direction === 0) return null;
+      if (target < 0 || target >= CELL_COUNT) return null;
+      if (target === attacker.pos) return null;
+      return target;
+    }
+
+    function maybeKnockback(attacker, defender) {
+      const target = knockbackTargetFor(attacker, defender);
+      if (target === null || Math.random() >= KNOCKBACK_CHANCE) return false;
+      const blockChance = immovableBlockChance(defender);
+      if (blockChance > 0 && Math.random() < blockChance) {
+        addLog(`${defender.name}は不動でノックバックを無効化。`);
+        return false;
+      }
+      defender.pos = target;
+      playFootstepSound();
+      addLog(`${defender.name}がノックバックしました。`);
+      return true;
+    }
+
+    function iaidoDamageMultiplier(level) {
+      if (level >= 3) return 2;
+      if (level === 2) return 1.5;
+      return 1;
+    }
+
+    function mizukagamiChance(level) {
+      if (level >= 3) return 0.7;
+      if (level === 2) return 0.5;
+      if (level === 1) return 0.3;
+      return 0;
+    }
+
+    function clearAttackRolls() {
+      for (const side of ["player", "enemy"]) {
+        if (state.attackRollTimers?.[side]) window.clearTimeout(state.attackRollTimers[side]);
+      }
+      state.attackRolls = { player: null, enemy: null };
+      state.attackRollTimers = { player: null, enemy: null };
+    }
+
+    function clearAttackRollTimers() {
+      for (const side of ["player", "enemy"]) {
+        if (state.attackRollTimers?.[side]) window.clearTimeout(state.attackRollTimers[side]);
+      }
+      state.attackRollTimers = { player: null, enemy: null };
+    }
+
+    function setAttackRoll(unit, roll, isHit) {
+      const side = unit.side;
+      const otherSide = side === "player" ? "enemy" : "player";
+      if (state.attackRollTimers[otherSide]) window.clearTimeout(state.attackRollTimers[otherSide]);
+      state.attackRolls[otherSide] = null;
+      state.attackRollTimers[otherSide] = null;
+      if (state.attackRollTimers[side]) window.clearTimeout(state.attackRollTimers[side]);
+      state.attackRolls[side] = { roll, isHit };
+      state.attackRollTimers[side] = window.setTimeout(() => {
+        state.attackRolls[side] = null;
+        state.attackRollTimers[side] = null;
+        if (state.gameOver) return;
+        render();
+      }, 2000);
+    }
+
+    function performAttack(attacker, defender, kind, options = {}) {
+      const {
+        source = "",
+        damageMultiplier = 1,
+        allowKnockback = true,
+        allowMizukagami = true
+      } = options;
+      const attackData = attackDataFor(attacker, kind);
+      const attackBaseHitRate = baseHitRateFor(attacker, attackData);
+      const hitRate = finalHitRateFor(attacker, attackData, defender);
+      let rawDamage = rollAttackDamage(attacker, attackData, kind);
+      if (damageMultiplier !== 1) rawDamage = Math.max(1, Math.floor(rawDamage * damageMultiplier));
+      const reduction = toughnessReductionFor(defender, rawDamage);
+      const damage = reduction.damage;
+      const roll = Math.floor(Math.random() * 100) + 1;
+      const isHit = roll <= hitRate;
+      setAttackRoll(attacker, roll, isHit);
+      recordAttackStat(attacker, kind, isHit, isHit ? damage : 0);
+
+      const sourceText = source ? `${source}: ` : "";
+      if (isHit) {
+        defender.hp = Math.max(0, defender.hp - damage);
+        const guardText = reduction.reduced > 0 ? `（TOU軽減 ${reduction.roll}/${reduction.chance}、-${reduction.reduced}）` : "";
+        addLog(`${sourceText}${attacker.name}の${attackData.label}が命中。${defender.name}に${damage}ダメージ${guardText}。判定${roll}/${hitRate}（基本${attackBaseHitRate}% - 回避${evasionFor(defender)}%）`);
+        if (kind === "melee" && allowKnockback && defender.hp > 0) {
+          maybeKnockback(attacker, defender);
+        }
+        if (kind === "melee" && allowMizukagami && defender.hp > 0) {
+          maybeMizukagami(defender, attacker);
+        }
+      } else {
+        addLog(`${sourceText}${attacker.name}の${attackData.label}はミス。判定${roll}/${hitRate}（基本${attackBaseHitRate}% - 回避${evasionFor(defender)}%）`);
+      }
+      return isHit;
+    }
+
+    function maybeMizukagami(defender, attacker) {
+      const level = skillLevelFor(defender, "mizukagami");
+      const chance = mizukagamiChance(level);
+      if (chance <= 0 || Math.random() >= chance || distance() !== 1) return false;
+      playAttackSound("melee");
+      addLog(`${defender.name}の水鏡が発動。`);
+      performAttack(defender, attacker, "melee", {
+        source: "水鏡",
+        allowKnockback: false,
+        allowMizukagami: false
+      });
+      return true;
+    }
+
+    function addLog(text) {
+      state.log.unshift(text);
+    }
+
+    function switchTurn() {
+      state.turn = state.turn === "player" ? "enemy" : "player";
+      clearMoveChain();
+      addLog(`${activeUnit().name}の手番です。`);
+    }
+
+    function finishAction() {
+      const actingUnit = activeUnit();
+      clearMoveChain();
+      if (state.player.hp <= 0 || state.enemy.hp <= 0) {
+        state.gameOver = true;
+        state.defeatedSide = state.player.hp > 0 ? "enemy" : "player";
+        clearAttackRollTimers();
+        const winner = state.player.hp > 0 ? state.player.name : state.enemy.name;
+        addLog(`${winner}の勝利です。`);
+      } else {
+        if (actingUnit.side === "enemy") tickStatusEffects(state.enemy);
+        switchTurn();
+      }
+      render();
+      notifyBattleFinished();
+      if (!state.gameOver && state.turn === "enemy") {
+        scheduleEnemyTurn();
+      }
+    }
+
+    function notifyBattleFinished() {
+      if (!state.gameOver || state.battleReported) return;
+      state.battleReported = true;
+      window.setTimeout(() => {
+        window.parent.postMessage({
+          type: "combat-finished",
+          outcome: state.player.hp > 0 ? "win" : "loss",
+          playerHp: state.player.hp,
+          playerPotions: state.player.potions,
+          enemyType: state.enemyType,
+          enemyStrength: state.enemyStrength,
+          enemyStats: { ...state.enemy.stats },
+          enemyDamage: {
+            melee: state.enemy.attacks.melee.damage,
+            shoot: state.enemy.attacks.shoot.damage
+          },
+          enemyHackLevel: state.enemy.hackLevel,
+          battleStats: { ...state.battleStats }
+        }, "*");
+      }, 980);
+    }
+
+    function clearEnemyTurn() {
+      if (state.enemyTimer) {
+        clearTimeout(state.enemyTimer);
+        state.enemyTimer = null;
+      }
+      state.enemyThinking = false;
+    }
+
+    function scheduleEnemyTurn() {
+      clearEnemyTurn();
+      state.enemyTimer = setTimeout(runEnemyTurn, ENEMY_ACTION_DELAY);
+    }
+
+    function runEnemyTurn() {
+      if (state.gameOver || state.turn !== "enemy") return;
+      state.enemyTimer = null;
+      state.enemyThinking = true;
+
+      const enemyHpRatio = state.enemy.hp / maxHpFor(state.enemy);
+      if (enemyHpRatio <= 0.4 && canUsePotion(state.enemy)) {
+        usePotion();
+      } else if (state.enemyType === "shooter") {
+        runShooterEnemyTurn();
+      } else if (state.enemyType === "balanced") {
+        runBalancedEnemyTurn();
+      } else {
+        runMeleeEnemyTurn();
+      }
+
+      state.enemyThinking = false;
+    }
+
+    function runMeleeEnemyTurn() {
+      if (canMelee()) {
+        attack("melee");
+      } else if (canMove(state.enemy, "forward")) {
+        move("forward");
+      } else if (canShoot()) {
+        attack("shoot");
+      } else {
+        waitTurn();
+      }
+    }
+
+    function runShooterEnemyTurn() {
+      const shootRate = enemyFinalHitRate("shoot", distance());
+      const shouldClose = canShoot()
+        && shootRate <= SHOOTER_CLOSE_HIT_THRESHOLD
+        && shooterCloseSteps() > 0
+        && Math.random() < SHOOTER_CLOSE_CHANCE;
+      if (shouldClose && shooterCloseForBetterShot()) {
+        return;
+      }
+      if (canShoot()) {
+        attack("shoot");
+      } else if (canMove(state.enemy, "back")) {
+        move("back");
+      } else if (canMelee()) {
+        attack("melee");
+      } else {
+        waitTurn();
+      }
+    }
+
+    function runBalancedEnemyTurn() {
+      const shootRate = enemyFinalHitRate("shoot", distance());
+      const shouldClose = canShoot()
+        && shootRate <= SHOOTER_CLOSE_HIT_THRESHOLD
+        && shooterCloseSteps() > 0
+        && Math.random() < SHOOTER_CLOSE_CHANCE;
+      if (shouldClose && shooterCloseForBetterShot()) {
+        return;
+      }
+      if (canMelee()) {
+        attack("melee");
+      } else if (distance() <= 3 && canShoot()) {
+        attack("shoot");
+      } else if (canMove(state.enemy, "forward")) {
+        move("forward");
+      } else if (canShoot()) {
+        attack("shoot");
+      } else {
+        waitTurn();
+      }
+    }
+
+    function randomEnemyType() {
+      const types = Object.keys(ENEMY_TYPES);
+      return types[Math.floor(Math.random() * types.length)];
+    }
+
+    function randomEnemyProfile(type) {
+      const speciesList = ENEMY_SPECIES[type] || ENEMY_SPECIES.balanced;
+      const species = speciesList[Math.floor(Math.random() * speciesList.length)];
+      const trait = ENEMY_TRAITS[Math.floor(Math.random() * ENEMY_TRAITS.length)];
+      const useTraitPrefix = trait.prefix !== "NULL" && Math.random() < 0.68;
+      return {
+        name: useTraitPrefix ? `${trait.prefix} ${species.name}` : species.name,
+        species,
+        trait
+      };
+    }
+
+    function randomEnemyStrength() {
+      if (ENEMY_STRENGTH_LEVELS[FORCED_ENEMY_STRENGTH]) return FORCED_ENEMY_STRENGTH;
+      const weights = enemyStrengthWeightsForFloor();
+      const total = Object.values(weights).reduce((sum, value) => sum + value, 0);
+      const roll = Math.random() * total;
+      let cursor = 0;
+      for (const [level, chance] of Object.entries(weights)) {
+        cursor += chance;
+        if (roll < cursor) return level;
+      }
+      return "weak";
+    }
+
+    function enemyHackLevel(strength = state.enemyStrength) {
+      const strengthOffset = { weak: 0, even: 1, strong: 2, boss: 3 }[strength] || 1;
+      return Math.max(1, Math.min(5, 1 + Math.floor((COMBAT_FLOOR - 1) / 2) + strengthOffset));
+    }
+
+    function enemyStrengthWeightsForFloor() {
+      const depth = Math.max(0, COMBAT_FLOOR - 1);
+      const strong = Math.min(42, 12 + depth * 3);
+      const even = Math.min(45, 34 + depth * 1.5);
+      const weak = Math.max(14, 100 - strong - even);
+      return { weak, even, strong };
+    }
+
+    function enemySkillsFor(strength) {
+      const depth = Math.max(0, COMBAT_FLOOR - 1);
+      const skills = {};
+      const roll = Math.random();
+      if (strength === "boss" || depth >= 7) skills.dash = true;
+      if (strength === "boss" || (strength === "strong" && depth >= 5 && roll < 0.55)) skills.immovable = true;
+      if (strength === "boss" || (strength === "strong" && depth >= 6 && roll < 0.35)) skills.iaido = true;
+      if (strength === "boss" || (depth >= 8 && roll < 0.3)) skills.mindEye = true;
+      return skills;
+    }
+
+    function applyStatOffset(stats, offset) {
+      return {
+        meleeSkill: Math.max(0, stats.meleeSkill + offset.meleeSkill),
+        shootingSkill: Math.max(0, stats.shootingSkill + offset.shootingSkill),
+        agility: Math.max(0, stats.agility + offset.agility),
+        toughness: Math.max(1, stats.toughness + offset.toughness)
+      };
+    }
+
+    function addStatMod(stats, mod = {}) {
+      return {
+        meleeSkill: stats.meleeSkill + (mod.meleeSkill || 0),
+        shootingSkill: stats.shootingSkill + (mod.shootingSkill || 0),
+        agility: stats.agility + (mod.agility || 0),
+        toughness: stats.toughness + (mod.toughness || 0)
+      };
+    }
+
+    function enemyStatCapsForFloor() {
+      const depth = Math.max(0, COMBAT_FLOOR - 1);
+      return {
+        meleeSkill: Math.floor(Math.min(54, PLAYER_STATS.meleeSkill + 4 + depth * 4)),
+        shootingSkill: Math.floor(Math.min(54, PLAYER_STATS.shootingSkill + 4 + depth * 4)),
+        agility: Math.floor(Math.min(32, PLAYER_STATS.agility + 2 + depth * 2.5)),
+        toughness: Math.floor(Math.min(30, PLAYER_STATS.toughness + 1 + depth * 2.5))
+      };
+    }
+
+    function clampEnemyStats(stats) {
+      const caps = enemyStatCapsForFloor();
+      return {
+        meleeSkill: Math.max(0, Math.min(caps.meleeSkill, stats.meleeSkill)),
+        shootingSkill: Math.max(0, Math.min(caps.shootingSkill, stats.shootingSkill)),
+        agility: Math.max(0, Math.min(caps.agility, stats.agility)),
+        toughness: Math.max(4, Math.min(caps.toughness, stats.toughness))
+      };
+    }
+
+    function randomBetween(min, max) {
+      return min + Math.floor(Math.random() * (max - min + 1));
+    }
+
+    function applyStatVariance(stats) {
+      return clampEnemyStats({
+        meleeSkill: Math.max(0, stats.meleeSkill + randomBetween(-STAT_VARIANCE.meleeSkill, STAT_VARIANCE.meleeSkill)),
+        shootingSkill: Math.max(0, stats.shootingSkill + randomBetween(-STAT_VARIANCE.shootingSkill, STAT_VARIANCE.shootingSkill)),
+        agility: Math.max(0, stats.agility + randomBetween(-STAT_VARIANCE.agility, STAT_VARIANCE.agility)),
+        toughness: Math.max(1, stats.toughness + randomBetween(-STAT_VARIANCE.toughness, STAT_VARIANCE.toughness))
+      });
+    }
+
+    function randomStartingPositions() {
+      const playerPos = Math.floor(Math.random() * (CELL_COUNT - 1));
+      const enemyPos = playerPos + 1 + Math.floor(Math.random() * (CELL_COUNT - playerPos - 1));
+      return { playerPos, enemyPos };
+    }
+
+    function randomFirstTurn() {
+      const playerAlwaysFirst = skillLevelFor(state.player, "dash") >= 3;
+      const enemyAlwaysFirst = skillLevelFor(state.enemy, "dash") >= 3;
+      if (playerAlwaysFirst && !enemyAlwaysFirst) return "player";
+      if (enemyAlwaysFirst && !playerAlwaysFirst) return "enemy";
+      return Math.random() < 0.5 ? "player" : "enemy";
+    }
+
+    function randomEnemyPotions() {
+      const roll = Math.random() * 100;
+      let cursor = 0;
+      for (const entry of ENEMY_POTION_TABLE) {
+        cursor += entry.chance;
+        if (roll < cursor) return entry.count;
+      }
+      return 0;
+    }
+
+    function combatFloor() {
+      const value = Number.parseInt(COMBAT_PARAMS.get("floor") || "1", 10);
+      return Number.isFinite(value) && value > 0 ? value : 1;
+    }
+
+    function applyStageTheme() {
+      const color = NEON_WALLS[(combatFloor() - 1) % NEON_WALLS.length];
+      document.documentElement.style.setProperty("--stage-neon", color.hex);
+      document.documentElement.style.setProperty("--stage-neon-rgb", color.rgb);
+    }
+
+    function configureEnemyType(type, strength) {
+      const config = ENEMY_TYPES[type];
+      const strengthConfig = ENEMY_STRENGTH_LEVELS[strength];
+      const profile = randomEnemyProfile(type);
+      state.enemyType = type;
+      state.enemyStrength = strength;
+      state.enemy.name = profile.name;
+      state.enemy.typeLabel = config.typeLabel;
+      state.enemy.strengthLabel = strengthConfig.label;
+      state.enemy.portrait = config.portrait;
+      state.enemy.logImage = profile.species.logImage || config.logImage;
+      document.documentElement.style.setProperty("--enemy-log-image", `url("${state.enemy.logImage}")`);
+      const speciesFeature = enemySpeciesFeature(profile.species);
+      const traitFeature = enemyTraitFeature(profile.trait);
+      state.enemy.featureText = enemyFeatureText(profile, speciesFeature, traitFeature);
+      state.enemy.scene = `${speciesFeature} ${traitFeature}`;
+      const generatedStats = addStatMod(
+        addStatMod(applyStatOffset(config.stats, strengthConfig.statOffset), profile.species.statMod),
+        profile.trait.statMod
+      );
+      state.enemy.stats = applyStatVariance(generatedStats);
+      state.enemy.attacks = applyEnemyWeaponBonus(
+        applyEnemyAttackMod(config.attacks, profile.species.attackMod, profile.trait.attackMod),
+        strengthConfig.weaponBonus
+      );
+    }
+
+    function enemyFeatureText(profile, speciesFeature, traitFeature) {
+      const traitIsDominant = profile.trait.prefix !== "NULL" && Math.random() < 0.52;
+      if (traitIsDominant) return traitFeature;
+      return speciesFeature;
+    }
+
+    function enemySpeciesFeature(species) {
+      return pickEnemyFeature(ENEMY_SPECIES_FEATURE_VARIANTS[species.name], species.feature);
+    }
+
+    function enemyTraitFeature(trait) {
+      return pickEnemyFeature(ENEMY_TRAIT_FEATURE_VARIANTS[trait.prefix], trait.feature);
+    }
+
+    function pickEnemyFeature(variants, fallback) {
+      if (Array.isArray(variants) && variants.length) {
+        return variants[Math.floor(Math.random() * variants.length)];
+      }
+      return fallback;
+    }
+
+    function applyEnemyAttackMod(attacks, speciesMod = {}, traitMod = {}) {
+      return {
+        melee: { ...attacks.melee, damage: Math.max(1, attacks.melee.damage + (speciesMod.melee || 0) + (traitMod.melee || 0)) },
+        shoot: { ...attacks.shoot, damage: Math.max(1, attacks.shoot.damage + (speciesMod.shoot || 0) + (traitMod.shoot || 0)) }
+      };
+    }
+
+    function enemyDamageCapForFloor() {
+      return Math.min(7, 2 + Math.floor((COMBAT_FLOOR + 1) / 3));
+    }
+
+    function applyEnemyWeaponBonus(attacks, bonus) {
+      const cap = enemyDamageCapForFloor();
+      return {
+        melee: { ...attacks.melee, damage: Math.min(cap, attacks.melee.damage + bonus) },
+        shoot: { ...attacks.shoot, damage: Math.min(cap, attacks.shoot.damage + bonus) }
+      };
+    }
+
+    function hackTimeForAttempt(attempt) {
+      const jammerBonus = Math.max(0, PLAYER_JAMMER_LEVEL - 1) * 500;
+      return Math.max(2000, 3000 - Math.max(0, attempt - 1) * 250) + jammerBonus;
+    }
+
+    function startHack(type) {
+      if (state.gameOver || state.turn !== "player" || state.hack) return;
+      const difficulty = HACK_DIFFICULTY[state.enemy.hackLevel] || HACK_DIFFICULTY[1];
+      state.hackAttempts[type] = (state.hackAttempts[type] || 0) + 1;
+      const attempt = state.hackAttempts[type];
+      const time = hackTimeForAttempt(attempt);
+      const mode = HACK_MODES[Math.floor(Math.random() * HACK_MODES.length)];
+      elements.hackPanel.classList.remove("result-success", "result-fail");
+      state.hack = {
+        active: true,
+        type,
+        mode,
+        attempt,
+        code: mode === "code" ? Array.from({ length: difficulty.length }, () => HACK_KEYS[Math.floor(Math.random() * HACK_KEYS.length)]) : [],
+        threshold: mode === "threshold" ? createThresholdHack(difficulty) : null,
+        anomaly: mode === "anomaly" ? createAnomalyHack(difficulty) : null,
+        index: 0,
+        misses: 0,
+        maxMisses: 0,
+        time,
+        startedAt: Date.now(),
+        timer: null,
+        interval: null
+      };
+      addLog(`${JAM_EFFECTS[type].label}ジャミング TRY ${attempt}。${hackModeLabel(mode)}を突破してください。`);
+      renderHackPanel();
+      state.hack.timer = window.setTimeout(() => finishHack(false, "TIME OUT"), time);
+      state.hack.interval = window.setInterval(renderHackPanel, 40);
+    }
+
+    function createThresholdHack(difficulty) {
+      const baseSpeed = 1.5 + state.enemy.hackLevel * 0.36;
+      const slowSpeed = baseSpeed * 0.42;
+      const fastSpeed = baseSpeed * 1.5;
+      const innerIsFast = Math.random() < 0.5;
+      const gateRing = Math.random() < 0.5 ? "outer" : "inner";
+      return {
+        passAt: 780 + Math.random() * 980,
+        outerSpeed: innerIsFast ? slowSpeed : fastSpeed,
+        innerSpeed: innerIsFast ? fastSpeed : slowSpeed,
+        outerDirection: innerIsFast ? 1 : -1,
+        innerDirection: innerIsFast ? -1 : 1,
+        gateRing,
+        wideWidth: 36,
+        narrowWidth: 8
+      };
+    }
+
+    function createAnomalyHack(difficulty) {
+      const size = Math.max(3, Math.min(6, 2 + state.enemy.hackLevel));
+      const total = size * size;
+      const anomalyKey = HACK_KEYS[Math.floor(Math.random() * HACK_KEYS.length)];
+      const decoyOptions = HACK_KEYS.filter(key => key !== anomalyKey);
+      const decoyKey = decoyOptions[Math.floor(Math.random() * decoyOptions.length)];
+      const anomalyIndex = Math.floor(Math.random() * total);
+      const colors = shuffledCopy(ANOMALY_COLORS).slice(0, 2);
+      return {
+        size,
+        anomalyIndex,
+        pattern: Array.from({ length: total }, (_, index) => index === anomalyIndex ? anomalyKey : decoyKey),
+        colors: Array.from({ length: total }, () => colors[Math.floor(Math.random() * colors.length)]),
+        answerKey: anomalyKey,
+        colorSet: colors
+      };
+    }
+
+    function shuffledCopy(list) {
+      const copy = [...list];
+      for (let index = copy.length - 1; index > 0; index -= 1) {
+        const swapIndex = Math.floor(Math.random() * (index + 1));
+        [copy[index], copy[swapIndex]] = [copy[swapIndex], copy[index]];
+      }
+      return copy;
+    }
+
+    function hackModeLabel(mode) {
+      return {
+        code: "CODE TRACE",
+        threshold: "PHASE LOCK",
+        anomaly: "ANOMALY SCAN"
+      }[mode] || "JAMMING";
+    }
+
+    function finishHack(success, reason = "") {
+      if (!state.hack || state.hack.resolving) return;
+      const { timer, interval } = state.hack;
+      window.clearTimeout(timer);
+      window.clearInterval(interval);
+      state.hack.resolving = true;
+      state.hack.success = success;
+      state.hack.reason = reason;
+      state.hack.resolvedAt = Date.now();
+      elements.hackPanel.classList.toggle("result-success", success);
+      elements.hackPanel.classList.toggle("result-fail", !success);
+      renderHackPanel();
+
+      window.setTimeout(() => completeHackResolution(), 1000);
+    }
+
+    function completeHackResolution() {
+      if (!state.hack) return;
+      const { type, mode, success, reason } = state.hack;
+      state.hack = null;
+      elements.hackPanel.classList.remove("active", "result-success", "result-fail");
+      recordHackMiniGameResult(mode, success);
+
+      if (success) {
+        const effect = JAM_EFFECTS[type];
+        addStatusEffect(state.enemy, type, effect.turns, jammerHitPenaltyPower());
+        addLog(`ジャミング成功: ${effect.label}。`);
+      } else {
+        addLog(`ジャミング失敗${reason ? `: ${reason}` : ""}。`);
+      }
+      finishAction();
+    }
+
+    function recordHackMiniGameResult(mode, success) {
+      const statMap = {
+        code: ["codeTraceAttempts", "codeTraceSuccesses"],
+        threshold: ["phaseLockAttempts", "phaseLockSuccesses"],
+        anomaly: ["anomalyScanAttempts", "anomalyScanSuccesses"]
+      };
+      const keys = statMap[mode];
+      if (!keys) return;
+      state.battleStats[keys[0]] += 1;
+      if (success) state.battleStats[keys[1]] += 1;
+    }
+
+    function handleHackKey(code) {
+      if (!state.hack) return false;
+      if (state.hack.resolving) return true;
+      if (state.hack.mode === "threshold") {
+        if (!["ArrowRight", "Space", "Enter"].includes(code)) return false;
+        const success = thresholdHackOverlaps();
+        finishHack(success, success ? "" : "MISS TIMING");
+        return true;
+      }
+      if (state.hack.mode === "anomaly") {
+        if (!HACK_KEYS.includes(code)) return false;
+        const success = code === state.hack.anomaly.answerKey;
+        finishHack(success, success ? "" : "FALSE TARGET");
+        return true;
+      }
+      if (!HACK_KEYS.includes(code)) return false;
+      const expected = state.hack.code[state.hack.index];
+      if (code === expected) {
+        state.hack.index += 1;
+        if (state.hack.index >= state.hack.code.length) {
+          finishHack(true);
+        } else {
+          renderHackPanel();
+        }
+      } else {
+        state.hack.misses += 1;
+        finishHack(false, "CODE ERROR");
+      }
+      return true;
+    }
+
+    function thresholdPhaseState() {
+      if (!state.hack?.threshold) return { outer: 0, inner: 0, delta: 180 };
+      const elapsed = (state.hack.resolvedAt || Date.now()) - state.hack.startedAt;
+      const phase = state.hack.threshold;
+      const t = (elapsed - phase.passAt) / 1000;
+      const outer = normalizeAngle(t * phase.outerSpeed * phase.outerDirection * 92);
+      const inner = normalizeAngle(t * phase.innerSpeed * phase.innerDirection * 92);
+      return { outer, inner, delta: angleDistance(outer, inner) };
+    }
+
+    function thresholdHackOverlaps() {
+      const threshold = state.hack.threshold;
+      const phase = thresholdPhaseState();
+      const gateAngle = threshold.gateRing === "inner" ? phase.inner : phase.outer;
+      const needleAngle = threshold.gateRing === "inner" ? phase.outer : phase.inner;
+      return angleDistance(gateAngle, needleAngle) <= (threshold.wideWidth - threshold.narrowWidth) / 2;
+    }
+
+    function normalizeAngle(value) {
+      return ((value % 360) + 360) % 360;
+    }
+
+    function angleDistance(a, b) {
+      const diff = Math.abs(normalizeAngle(a) - normalizeAngle(b));
+      return Math.min(diff, 360 - diff);
+    }
+
+    function renderHackPanel(hasError = false) {
+      if (!state.hack) return;
+      const remaining = Math.max(0, (state.hack.time - (Date.now() - state.hack.startedAt)) / 1000);
+      const remainingText = state.hack.resolving ? (state.hack.success ? "OK" : "NG") : remaining.toFixed(2);
+      const effect = JAM_EFFECTS[state.hack.type];
+      elements.hackTitle.textContent = `${effect.label} JAM / ${hackModeLabel(state.hack.mode)} / LV${state.enemy.hackLevel}`;
+      elements.hackCode.innerHTML = `${hackBodyHtml(hasError)}<span class="hack-countdown ${remaining <= 2 ? "danger" : ""}">${remainingText}</span>`;
+      elements.hackStatus.textContent = hackStatusText();
+      elements.hackPanel.classList.add("active");
+    }
+
+    function hackBodyHtml(hasError = false) {
+      if (state.hack.mode === "threshold") return thresholdHackHtml();
+      if (state.hack.mode === "anomaly") return anomalyHackHtml();
+      const codeHtml = state.hack.code.map((code, index) => {
+        const className = [
+          index < state.hack.index ? "done" : "",
+          hasError && index === state.hack.index ? "error" : "",
+          state.hack.resolving && state.hack.success ? "result-glow" : "",
+          state.hack.resolving && !state.hack.success ? "result-dim" : ""
+        ].filter(Boolean).join(" ");
+        return `<span class="hack-key ${className}">${arrowSymbol(code)}</span>`;
+      }).join("");
+      return `<span class="hack-sequence">${codeHtml}</span>`;
+    }
+
+    function thresholdHackHtml() {
+      const phase = thresholdPhaseState();
+      const locked = thresholdHackOverlaps();
+      const gateRing = state.hack.threshold.gateRing;
+      return `
+        <span class="threshold-arena ${locked ? "locked" : ""}">
+          <span class="phase-lock-line"></span>
+          <span class="phase-ring outer ${gateRing === "outer" ? "wide" : "narrow"}" style="--phase-angle:${phase.outer}deg"></span>
+          <span class="phase-ring inner ${gateRing === "inner" ? "wide" : "narrow"}" style="--phase-angle:${phase.inner}deg"></span>
+          <span class="phase-core"></span>
+        </span>
+      `;
+    }
+
+    function anomalyHackHtml() {
+      const pattern = state.hack.anomaly.pattern
+        .map((code, index) => {
+          const isAnswer = index === state.hack.anomaly.anomalyIndex;
+          const color = state.hack.anomaly.colors?.[index] || state.hack.anomaly.colorSet?.[0] || "#d9fbff";
+          const className = [
+            state.hack.resolving && state.hack.success && isAnswer ? "result-glow" : "",
+            state.hack.resolving && !state.hack.success && isAnswer ? "result-dim" : ""
+          ].filter(Boolean).join(" ");
+          return `<span class="hack-key ${className}" style="--hack-key-color:${color}">${arrowSymbol(code)}</span>`;
+        })
+        .join("");
+      return `<span class="anomaly-grid" style="--anomaly-size:${state.hack.anomaly.size}">${pattern}</span>`;
+    }
+
+    function hackStatusText() {
+      const base = `TRY ${state.hack.attempt} / LIMIT ${(state.hack.time / 1000).toFixed(2)} / ERROR = FAIL`;
+      if (state.hack.resolving) return state.hack.success ? "ACCESS GRANTED" : "ACCESS DENIED";
+      if (state.hack.mode === "threshold") return `${base} / → WHEN PHASE LOCKS`;
+      if (state.hack.mode === "anomaly") return `${base} / FIND THE ODD ARROW`;
+      return base;
+    }
+
+    function arrowSymbol(code) {
+      return {
+        ArrowUp: "↑",
+        ArrowDown: "↓",
+        ArrowLeft: "←",
+        ArrowRight: "→"
+      }[code] || "?";
+    }
+
+    function startBattle(type, message) {
+      clearEnemyTurn();
+      if (state.hack?.timer) window.clearTimeout(state.hack.timer);
+      if (state.hack?.interval) window.clearInterval(state.hack.interval);
+      state.hack = null;
+      state.hackAttempts = { fog: 0, paralyze: 0 };
+      clearMoveChain();
+      clearAttackRolls();
+      elements.hackPanel.classList.remove("active");
+      const positions = randomStartingPositions();
+      const strength = randomEnemyStrength();
+      configureEnemyType(type, strength);
+      state.player.name = PLAYER_NAME;
+      state.player.stats = { ...PLAYER_STATS };
+      state.player.skills = { ...PLAYER_SKILLS };
+      state.player.pos = positions.playerPos;
+      state.enemy.pos = positions.enemyPos;
+      state.player.maxHp = PLAYER_STATS.toughness;
+      state.enemy.maxHp = Math.max(1, Math.ceil(state.enemy.stats.toughness * (ENEMY_STRENGTH_LEVELS[strength]?.hpMultiplier || 1)));
+      state.player.hp = Math.max(1, Math.min(maxHpFor(state.player), PLAYER_START_HP));
+      state.enemy.hp = maxHpFor(state.enemy);
+      state.enemy.potions = randomEnemyPotions();
+      state.enemy.statusEffects = [];
+      state.enemy.skills = enemySkillsFor(strength);
+      state.player.statusEffects = PLAYER_TRAP_EFFECTS.map(effect => ({ ...effect }));
+      state.enemy.hackLevel = enemyHackLevel(strength);
+      state.player.potions = STARTING_POTIONS;
+      state.turn = randomFirstTurn();
+      state.gameOver = false;
+      state.battleReported = false;
+      state.defeatedSide = "";
+      state.battleStats = {
+        playerAttacks: 0,
+        playerHits: 0,
+        meleeAttacks: 0,
+        meleeHits: 0,
+        shootAttacks: 0,
+        shootHits: 0,
+        damageDealt: 0,
+        damageTaken: 0,
+        codeTraceAttempts: 0,
+        codeTraceSuccesses: 0,
+        phaseLockAttempts: 0,
+        phaseLockSuccesses: 0,
+        anomalyScanAttempts: 0,
+        anomalyScanSuccesses: 0
+      };
+      state.log = [
+        `${activeUnit().name}が先攻です。`,
+        `${state.enemy.name}が現れた。初期距離は${distance()}です。`
+      ];
+      render();
+      if (state.turn === "enemy") {
+        scheduleEnemyTurn();
+      }
+    }
+
+    function applyEnemyType(type) {
+      startBattle(type, "敵タイプを変更しました。");
+    }
+
+    function move(direction) {
+      if (state.gameOver) return;
+      if (playerActionBlocked()) return;
+      const unit = activeUnit();
+      const playerStepMove = unit.side === "player" && movementRangeFor(unit) > 1;
+      if (playerStepMove && !state.moveChainActive) beginMoveChain(unit);
+      const steps = playerStepMove ? (canMoveOneStep(unit, direction) ? 1 : 0) : moveStepsFor(unit, direction);
+      if (steps === 0) return;
+      if (hasStatus(unit, "paralyze") && Math.random() >= 0.5) {
+        addLog(`${unit.name}はPARALYZEで動けません。`);
+        finishAction();
+        return;
+      }
+      playFootstepSound();
+      unit.pos += moveDelta(unit, direction) * steps;
+      addLog(`${unit.name}が${direction === "forward" ? "前進" : "後退"}しました。${steps}マス移動。`);
+      if (maybeAutoIaido(unit)) {
+        finishAction();
+        return;
+      }
+      if (playerStepMove) {
+        state.moveStepsRemaining = Math.max(0, state.moveStepsRemaining - 1);
+        if (state.moveStepsRemaining > 0 && (canMoveOneStep(unit, "forward") || canMoveOneStep(unit, "back"))) {
+          render();
+          return;
+        }
+      }
+      finishAction();
+    }
+
+    function shooterCloseForBetterShot() {
+      if (state.gameOver || state.turn !== "enemy") return false;
+      const steps = shooterCloseSteps();
+      if (steps === 0) return false;
+      if (hasStatus(state.enemy, "paralyze") && Math.random() >= 0.5) {
+        addLog(`${state.enemy.name}はPARALYZEで動けません。`);
+        finishAction();
+        return true;
+      }
+      playFootstepSound();
+      state.enemy.pos += moveDelta(state.enemy, "forward") * steps;
+      addLog(`${state.enemy.name}が命中率を上げるため距離を詰めました。${steps}マス移動。`);
+      if (maybeAutoIaido(state.enemy)) {
+        finishAction();
+        return true;
+      }
+      finishAction();
+      return true;
+    }
+
+    function attack(kind) {
+      if (state.gameOver) return;
+      if (playerActionBlocked()) return;
+      if (kind === "melee" && !canMelee()) return;
+      if (kind === "shoot" && !canShoot()) return;
+      playAttackSound(kind);
+
+      const attacker = activeUnit();
+      const defender = passiveUnit();
+      performAttack(attacker, defender, kind);
+      finishAction();
+    }
+
+    function recordAttackStat(attacker, kind, isHit, damage) {
+      if (attacker.side === "player") {
+        state.battleStats.playerAttacks += 1;
+        if (isHit) state.battleStats.playerHits += 1;
+        if (kind === "melee") {
+          state.battleStats.meleeAttacks += 1;
+          if (isHit) state.battleStats.meleeHits += 1;
+        }
+        if (kind === "shoot") {
+          state.battleStats.shootAttacks += 1;
+          if (isHit) state.battleStats.shootHits += 1;
+        }
+        state.battleStats.damageDealt += damage;
+      } else {
+        state.battleStats.damageTaken += damage;
+      }
+    }
+
+    function usePotion() {
+      if (state.gameOver) return;
+      if (playerActionBlocked()) return;
+      const unit = activeUnit();
+      if (!canUsePotion(unit)) return;
+
+      const beforeHp = unit.hp;
+      const heal = POTION_HEAL + randomBetween(-1, 1);
+      unit.hp = Math.min(maxHpFor(unit), unit.hp + heal);
+      unit.potions -= 1;
+      addLog(`${unit.name}が回復ポーションを使用。HPが${unit.hp - beforeHp}回復しました。`);
+      finishAction();
+    }
+
+    function waitTurn() {
+      if (state.gameOver) return;
+      if (playerActionBlocked()) return;
+      addLog(`${activeUnit().name}は待機しました。`);
+      finishAction();
+    }
+
+    function reset() {
+      startBattle(randomEnemyType(), "戦闘開始。");
+    }
+
+    function renderBoard() {
+      elements.board.innerHTML = "";
+      for (let index = 0; index < CELL_COUNT; index += 1) {
+        const cell = document.createElement("div");
+        cell.className = "cell";
+        if (!state.gameOver && (index === activeUnit().pos)) {
+          cell.classList.add("target", activeUnit().side === "player" ? "target-player" : "target-enemy");
+        }
+        if (index === state.player.pos) {
+          const piece = document.createElement("div");
+          piece.className = "piece player";
+          if (state.defeatedSide === "player") piece.classList.add("defeated");
+          piece.setAttribute("aria-label", "自キャラ");
+          const rollBadge = state.defeatedSide === "player" ? null : attackRollBadge(state.player);
+          if (rollBadge) piece.appendChild(rollBadge);
+          cell.appendChild(piece);
+          const statusOverlay = pieceStatusOverlay(state.player);
+          if (statusOverlay) cell.appendChild(statusOverlay);
+        }
+        if (index === state.enemy.pos) {
+          const piece = document.createElement("div");
+          piece.className = "piece enemy";
+          if (state.defeatedSide === "enemy") piece.classList.add("defeated");
+          piece.setAttribute("aria-label", "敵キャラ");
+          const rollBadge = state.defeatedSide === "enemy" ? null : attackRollBadge(state.enemy);
+          if (rollBadge) piece.appendChild(rollBadge);
+          cell.appendChild(piece);
+          const statusOverlay = pieceStatusOverlay(state.enemy);
+          if (statusOverlay) cell.appendChild(statusOverlay);
+        }
+        elements.board.appendChild(cell);
+      }
+    }
+
+    function attackRollBadge(unit) {
+      const result = state.attackRolls?.[unit.side];
+      if (!result) return null;
+      const badge = document.createElement("span");
+      badge.className = `piece-roll ${result.isHit ? "hit" : "miss"}`;
+      badge.textContent = result.roll;
+      badge.title = result.isHit ? "HIT" : "MISS";
+      return badge;
+    }
+
+    function pieceStatusOverlay(unit) {
+      const effects = unit.statusEffects || [];
+      if (effects.length === 0 || state.defeatedSide === unit.side) return null;
+      const overlay = document.createElement("div");
+      overlay.className = "piece-status";
+      for (const effect of effects) {
+        const icon = document.createElement("span");
+        icon.className = `piece-status-icon ${effect.type}`;
+        icon.textContent = effect.type === "fog" ? "🕶" : "⚡";
+        icon.title = unit.side === "player" && PLAYER_TRAP_EFFECTS.length > 0
+          ? `${JAM_EFFECTS[effect.type]?.label || effect.type} ${effect.turns}戦`
+          : `${JAM_EFFECTS[effect.type]?.label || effect.type} ${effect.turns}T`;
+        const turn = document.createElement("span");
+        turn.className = "piece-status-turn";
+        turn.textContent = effect.turns;
+        icon.appendChild(turn);
+        overlay.appendChild(icon);
+      }
+      return overlay;
+    }
+
+    function render() {
+      const active = activeUnit();
+      const dist = distance();
+      const melee = canMelee();
+      const shoot = canShoot();
+      const potion = canUsePotion(active);
+      const playerLocked = state.gameOver || state.turn === "enemy" || Boolean(state.hack);
+      const movingPlayer = state.moveChainActive && state.turn === "player" && !state.gameOver;
+      const previewMelee = attackDataFor(state.player, "melee");
+      const previewShoot = attackDataFor(state.player, "shoot");
+      const shootBaseHitRate = baseHitRate(previewShoot, dist);
+      const shootRateList = Object.entries(shootingHitRatesFor(state.player))
+        .map(([shootDistance, rate]) => `距離${shootDistance}: ${rate}%`)
+        .join(" / ");
+
+      renderBoard();
+      if (elements.turnDot) {
+        elements.turnDot.style.background = active.side === "player" ? "var(--blue)" : "var(--red)";
+      }
+      if (elements.turnText) {
+        elements.turnText.textContent = state.gameOver ? "戦闘終了" : `${active.name}の手番`;
+      }
+
+      elements.playerHpFill.style.width = `${state.player.hp / maxHpFor(state.player) * 100}%`;
+      elements.enemyHpFill.style.width = `${state.enemy.hp / maxHpFor(state.enemy) * 100}%`;
+      elements.playerNameText.textContent = state.player.name;
+      elements.playerHpText.textContent = `HP ${state.player.hp}/${maxHpFor(state.player)}`;
+      elements.playerSkillText.innerHTML = playerSkillChipsHtml();
+      elements.enemyHpText.textContent = `HP ${state.enemy.hp}/${maxHpFor(state.enemy)}`;
+      elements.playerPotionText.innerHTML = potionIndicatorHtml(state.player.potions);
+      elements.playerMeta.innerHTML = playerStatCardsHtml();
+      elements.enemyName.textContent = state.enemy.name;
+      elements.enemyMeta.innerHTML = enemyMetaHtml();
+      if (elements.enemyPortrait) {
+        elements.enemyPortrait.textContent = "";
+        elements.enemyPortrait.className = "";
+      }
+      elements.sceneTitle.textContent = "";
+      elements.sceneText.textContent = "";
+      positionAttackBubble(elements.attackBubble, state.player.pos);
+      positionAttackBubble(elements.enemyAttackBubble, state.enemy.pos);
+      elements.attackBubble.innerHTML = attackBubbleHtml(previewMelee, previewShoot, melee, shoot, dist);
+      elements.enemyAttackBubble.innerHTML = enemyAttackBubbleHtml(dist);
+
+      elements.distanceText.textContent = `距離 ${dist}`;
+      elements.distanceDetail.textContent = dist === 1 ? "隣接しています" : `${dist}マス離れています`;
+      elements.meleeText.textContent = melee ? "近接可能" : "近接不可";
+      elements.meleeDetail.textContent = `基本命中 ${MELEE_HIT_BASE + state.player.stats.meleeSkill}% / ダメージ${damageRangeTextFor(state.player, previewMelee, "melee")}`;
+      elements.shootText.textContent = shoot ? "射撃可能" : "射撃不可";
+      elements.shootDetail.textContent = shoot
+        ? `現在距離の基本命中 ${shootBaseHitRate}% / ダメージ${damageRangeTextFor(state.player, previewShoot, "shoot")} / ${shootRateList}`
+        : shootRateList;
+      elements.meleeCard.classList.toggle("available", melee);
+      elements.shootCard.classList.toggle("available", shoot);
+      elements.distanceCard.classList.toggle("warning", dist === 1);
+
+      elements.enemyTypeButtons.forEach((button) => {
+        button.classList.toggle("selected", button.dataset.enemyType === state.enemyType);
+      });
+
+      elements.moveEndPanel.classList.toggle("active", movingPlayer);
+      elements.moveEndText.textContent = `MOVE ${state.moveStepsRemaining} LEFT`;
+      elements.backButton.disabled = playerLocked || (movingPlayer ? !canMoveOneStep(active, "back") : !canMove(active, "back"));
+      elements.forwardButton.disabled = playerLocked || (movingPlayer ? !canMoveOneStep(active, "forward") : !canMove(active, "forward"));
+      elements.meleeButton.disabled = playerLocked || movingPlayer || !melee;
+      elements.shootButton.disabled = playerLocked || movingPlayer || !shoot;
+      elements.fogButton.disabled = playerLocked || movingPlayer || hasStatus(state.enemy, "fog");
+      elements.paralyzeButton.disabled = playerLocked || movingPlayer || hasStatus(state.enemy, "paralyze");
+      elements.potionButton.disabled = playerLocked || movingPlayer || !potion;
+      elements.waitButton.disabled = playerLocked;
+      syncCommandSelection();
+
+      elements.log.innerHTML = state.log.map((entry) => `<p>${formatLogEntry(entry)}</p>`).join("");
+    }
+
+    function attackBubbleHtml(previewMelee, previewShoot, melee, shoot, dist) {
+      if (state.gameOver) return "";
+      const options = [];
+      if (melee) {
+        options.push({
+          label: "近接",
+          rate: playerFinalHitRate(previewMelee, "melee", dist)
+        });
+      }
+      if (shoot) {
+        options.push({
+          label: "射撃",
+          rate: playerFinalHitRate(previewShoot, "shoot", dist)
+        });
+      }
+      if (!options.length) return "攻撃不可";
+      return options.map(option => `
+        <span class="attack-option">${option.label}</span>
+        <span class="attack-rate">${option.rate}%</span>
+      `).join("");
+    }
+
+    function enemyAttackBubbleHtml(dist) {
+      if (state.gameOver) return "";
+      const options = [];
+      if (dist === 1) {
+        options.push({
+          label: "近接",
+          rate: enemyFinalHitRate("melee", dist)
+        });
+      }
+      if (dist > 1) {
+        options.push({
+          label: "射撃",
+          rate: enemyFinalHitRate("shoot", dist)
+        });
+      }
+      if (!options.length) return "攻撃不可";
+      return options.map(option => `
+        <span class="attack-option">${option.label}</span>
+        <span class="attack-rate">${option.rate}%</span>
+      `).join("");
+    }
+
+    function positionAttackBubble(element, pos) {
+      const x = 8 + ((pos + 0.5) / CELL_COUNT) * 84;
+      const clamped = Math.max(16, Math.min(84, x));
+      element.style.setProperty("--attack-bubble-x", `${clamped}%`);
+    }
+
+    function playerFinalHitRate(attackData, kind, dist) {
+      const base = kind === "melee"
+        ? statusAdjustedMeleeRate(state.player, MELEE_HIT_BASE + meleeSkillFor(state.player))
+        : shootingHitRatesFor(state.player)[dist] ?? 0;
+      return Math.max(5, Math.min(95, base - evasionFor(state.enemy)));
+    }
+
+    function enemyFinalHitRate(kind, dist) {
+      const base = kind === "melee"
+        ? statusAdjustedMeleeRate(state.enemy, MELEE_HIT_BASE + meleeSkillFor(state.enemy))
+        : shootingHitRatesFor(state.enemy)[dist] ?? 0;
+      return Math.max(5, Math.min(95, base - evasionFor(state.player)));
+    }
+
+    function escapeHtml(value) {
+      return String(value)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+    }
+
+    function playerStatCardsHtml() {
+      return [
+        ["MEL", state.player.stats.meleeSkill, "melee"],
+        ["SHOT", state.player.stats.shootingSkill, "shoot"],
+        ["AGI", state.player.stats.agility, ""],
+        ["TOU", state.player.stats.toughness, "hpish"],
+        ["KNIFE", state.player.attacks.melee.damage, "weapon"],
+        ["GUN", state.player.attacks.shoot.damage, "weapon"],
+        ["JAM", PLAYER_JAMMER_LEVEL, "weapon"]
+      ].map(([label, value, className]) => `
+        <div class="combat-stat-card ${className}">
+          <span class="stat-label">${label}</span>
+          <span class="stat-value">${value}</span>
+        </div>
+      `).join("");
+    }
+
+    function playerSkillChipsHtml() {
+      const skills = [];
+      if (skillLevelFor(state.player, "iaido") >= 1) skills.push(`居合${skillLevelFor(state.player, "iaido")}`);
+      if (skillLevelFor(state.player, "mindEye") >= 1) skills.push(`心眼${skillLevelFor(state.player, "mindEye")}`);
+      if (skillLevelFor(state.player, "dash") >= 1) skills.push(`疾駆${skillLevelFor(state.player, "dash")}`);
+      if (skillLevelFor(state.player, "immovable") >= 1) skills.push(`不動${skillLevelFor(state.player, "immovable")}`);
+      if (skillLevelFor(state.player, "mizukagami") >= 1) skills.push(`水鏡${skillLevelFor(state.player, "mizukagami")}`);
+      return skills.map(skill => `<span class="skill-chip">${skill}</span>`).join("");
+    }
+
+    function enemyMetaHtml() {
+      return escapeHtml(state.enemy.featureText || state.enemy.scene || "");
+    }
+
+    function potionIndicatorHtml(count) {
+      const activeCount = Math.max(0, Math.min(MAX_POTIONS, count));
+      return Array.from({ length: MAX_POTIONS }, (_, index) => (
+        `<span class="potion-dot ${index < activeCount ? "active" : ""}"></span>`
+      )).join("");
+    }
+
+    function escapeRegExp(value) {
+      return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    }
+
+    function formatLogEntry(entry) {
+      let text = escapeHtml(entry);
+      const names = [
+        { name: state.enemy.name, className: "log-name-enemy" },
+        { name: state.player.name, className: "log-name-player" }
+      ]
+        .filter(item => item.name)
+        .map(item => ({ ...item, escapedName: escapeHtml(item.name) }))
+        .sort((a, b) => b.escapedName.length - a.escapedName.length);
+      const placeholders = [];
+
+      names.forEach((item) => {
+        const pattern = new RegExp(escapeRegExp(item.escapedName), "g");
+        text = text.replace(pattern, () => {
+          const token = `@@LOG_NAME_${placeholders.length}@@`;
+          placeholders.push(`<span class="${item.className}">${item.escapedName}</span>`);
+          return token;
+        });
+      });
+
+      placeholders.forEach((html, index) => {
+        text = text.replace(`@@LOG_NAME_${index}@@`, html);
+      });
+      return text;
+    }
+
+    function enabledCommands() {
+      return COMMANDS.filter(command => !command.button.disabled);
+    }
+
+    function syncCommandSelection() {
+      const enabled = enabledCommands();
+      if (enabled.length === 0) {
+        COMMANDS.forEach(command => command.button.classList.remove("selected"));
+        return;
+      }
+      if (enabled.some(command => command.key === state.preferredCommand)) {
+        state.selectedCommand = state.preferredCommand;
+      } else if (!enabled.some(command => command.key === state.selectedCommand)) {
+        state.selectedCommand = enabled[0]?.key || "";
+      }
+      COMMANDS.forEach(command => {
+        command.button.classList.toggle("selected", command.key === state.selectedCommand && !command.button.disabled);
+      });
+    }
+
+    function rememberCommand(key) {
+      state.selectedCommand = key;
+      state.preferredCommand = key;
+      syncCommandSelection();
+    }
+
+    function moveCommandSelection(delta) {
+      const enabled = enabledCommands();
+      if (enabled.length === 0) return;
+      const currentIndex = Math.max(0, enabled.findIndex(command => command.key === state.selectedCommand));
+      const nextIndex = (currentIndex + delta + enabled.length) % enabled.length;
+      rememberCommand(enabled[nextIndex].key);
+    }
+
+    function runSelectedCommand() {
+      const command = COMMANDS.find(entry => entry.key === state.selectedCommand);
+      if (!command || command.button.disabled) return;
+      state.preferredCommand = command.key;
+      getAudioContext();
+      command.run();
+    }
+
+    window.addEventListener("keydown", event => {
+      const isArrowInput = ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(event.code);
+      const isHackConfirmInput = state.hack && ["Space", "Enter"].includes(event.code);
+      if (!isArrowInput && !isHackConfirmInput) return;
+      event.preventDefault();
+      if (state.gameOver) {
+        window.parent.postMessage({ type: "combat-return-request" }, "*");
+        return;
+      }
+      if (state.hack) {
+        handleHackKey(event.code);
+        return;
+      }
+      if (state.turn === "enemy") return;
+      if (state.moveChainActive && event.code === "ArrowLeft") {
+        finishMoveChain();
+        return;
+      }
+      if (event.code === "ArrowUp") moveCommandSelection(-1);
+      if (event.code === "ArrowDown") moveCommandSelection(1);
+      if (event.code === "ArrowRight") runSelectedCommand();
+    });
+
+    elements.backButton.addEventListener("click", () => {
+      rememberCommand("back");
+      getAudioContext();
+      move("back");
+    });
+    elements.forwardButton.addEventListener("click", () => {
+      rememberCommand("forward");
+      getAudioContext();
+      move("forward");
+    });
+    elements.meleeButton.addEventListener("click", () => {
+      rememberCommand("melee");
+      getAudioContext();
+      attack("melee");
+    });
+    elements.shootButton.addEventListener("click", () => {
+      rememberCommand("shoot");
+      getAudioContext();
+      attack("shoot");
+    });
+    elements.fogButton.addEventListener("click", () => {
+      rememberCommand("fog");
+      getAudioContext();
+      startHack("fog");
+    });
+    elements.paralyzeButton.addEventListener("click", () => {
+      rememberCommand("paralyze");
+      getAudioContext();
+      startHack("paralyze");
+    });
+    elements.potionButton.addEventListener("click", () => {
+      rememberCommand("potion");
+      getAudioContext();
+      usePotion();
+    });
+    elements.moveEndButton.addEventListener("click", () => {
+      getAudioContext();
+      finishMoveChain();
+    });
+    elements.waitButton.addEventListener("click", () => {
+      getAudioContext();
+      waitTurn();
+    });
+    elements.resetButton.addEventListener("click", () => {
+      getAudioContext();
+      reset();
+    });
+    elements.enemyTypeButtons.forEach((button) => {
+      button.addEventListener("click", () => {
+        getAudioContext();
+        applyEnemyType(button.dataset.enemyType);
+      });
+    });
+
+    applyStageTheme();
+    reset();
+  </script>
+</body>
+</html>
