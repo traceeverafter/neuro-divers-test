@@ -1525,6 +1525,8 @@
     }
 
     function reborn() {
+      state.gameOver = false;
+      resetSwipeState();
       hideTitleConfirm();
       closeCombatPopup();
       hidePause();
@@ -3941,6 +3943,11 @@
       return dy > 0 ? "ArrowDown" : "ArrowUp";
     }
 
+    function resetSwipeState() {
+      swipeState.active = false;
+      swipeState.pointerId = null;
+    }
+
     window.addEventListener("pointerdown", event => {
       if (!shouldHandleSwipe(event)) return;
       swipeState.active = true;
@@ -3951,7 +3958,7 @@
     }, { passive: true });
 
     window.addEventListener("pointerup", event => {
-      if (state.gameOver) {
+      if (state.gameOver && state.mode !== "title") {
         event.preventDefault();
         reborn();
         return;
@@ -3962,6 +3969,13 @@
       const elapsed = performance.now() - swipeState.startedAt;
       swipeState.active = false;
       swipeState.pointerId = null;
+      const distance = Math.hypot(dx, dy);
+      if (state.combatOpen && !state.pendingCombatResult && distance < 28 && elapsed < 650) {
+        event.preventDefault();
+        getAudioContext();
+        sendMobileKey("Space");
+        return;
+      }
       if (elapsed > 900) return;
       const code = swipeToKey(dx, dy);
       if (!code) return;

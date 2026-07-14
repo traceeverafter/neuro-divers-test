@@ -3740,6 +3740,7 @@
 
     function shouldHandleSwipe(event) {
       if (event.pointerType === "mouse") return false;
+      if (state.hack?.mode === "threshold" && !state.hack.resolving) return true;
       if (event.target.closest("button, input, select, textarea, a")) return false;
       return true;
     }
@@ -3794,7 +3795,7 @@
       swipeState.active = false;
       swipeState.pointerId = null;
       const distance = Math.hypot(dx, dy);
-      if (distance < 18 && elapsed < 500 && handleTapInput()) {
+      if (distance < 28 && elapsed < 650 && handleTapInput()) {
         event.preventDefault();
         return;
       }
