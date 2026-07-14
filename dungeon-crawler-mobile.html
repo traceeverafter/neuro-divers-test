@@ -27,9 +27,12 @@
       height: 100%;
       margin: 0;
       overflow: hidden;
+      overscroll-behavior: none;
       background: var(--bg);
       color: var(--line);
       font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      touch-action: none;
+      user-select: none;
     }
 
     body {
@@ -64,6 +67,7 @@
         0 0 14px rgba(0, 229, 255, .16),
         inset 0 0 10px rgba(0, 229, 255, .08);
       touch-action: manipulation;
+      user-select: none;
     }
 
     .mobile-controls .up { grid-column: 2; grid-row: 1; }
@@ -3911,6 +3915,61 @@
         sendMobileKey(button.dataset.mobileKey);
       });
     });
+
+    const swipeState = {
+      active: false,
+      pointerId: null,
+      x: 0,
+      y: 0,
+      startedAt: 0
+    };
+
+    function shouldHandleSwipe(event) {
+      if (event.pointerType === "mouse") return false;
+      if (event.target.closest("button, input, select, textarea, a")) return false;
+      if (state.mode === "title" || state.mode === "paused") return false;
+      if (state.showMap || state.gameOver || state.encounterPending) return false;
+      return state.mode === "playing" || state.combatOpen;
+    }
+
+    function swipeToKey(dx, dy) {
+      const distance = Math.hypot(dx, dy);
+      if (distance < 34) return "";
+      if (Math.abs(dx) > Math.abs(dy)) {
+        return dx > 0 ? "ArrowRight" : "ArrowLeft";
+      }
+      return dy > 0 ? "ArrowDown" : "ArrowUp";
+    }
+
+    window.addEventListener("pointerdown", event => {
+      if (!shouldHandleSwipe(event)) return;
+      swipeState.active = true;
+      swipeState.pointerId = event.pointerId;
+      swipeState.x = event.clientX;
+      swipeState.y = event.clientY;
+      swipeState.startedAt = performance.now();
+    }, { passive: true });
+
+    window.addEventListener("pointerup", event => {
+      if (!swipeState.active || event.pointerId !== swipeState.pointerId) return;
+      const dx = event.clientX - swipeState.x;
+      const dy = event.clientY - swipeState.y;
+      const elapsed = performance.now() - swipeState.startedAt;
+      swipeState.active = false;
+      swipeState.pointerId = null;
+      if (elapsed > 900) return;
+      const code = swipeToKey(dx, dy);
+      if (!code) return;
+      event.preventDefault();
+      getAudioContext();
+      sendMobileKey(code);
+    }, { passive: false });
+
+    window.addEventListener("pointercancel", () => {
+      swipeState.active = false;
+      swipeState.pointerId = null;
+    });
+
     renderTitleMenu();
     resize();
   </script>
