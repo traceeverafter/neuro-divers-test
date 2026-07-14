@@ -3768,6 +3768,15 @@
       }));
     }
 
+    function handleTapInput() {
+      if (state.hack?.mode === "threshold" && !state.hack.resolving) {
+        getAudioContext();
+        handleHackKey("ArrowRight");
+        return true;
+      }
+      return false;
+    }
+
     window.addEventListener("pointerdown", event => {
       if (!shouldHandleSwipe(event)) return;
       swipeState.active = true;
@@ -3784,6 +3793,11 @@
       const elapsed = performance.now() - swipeState.startedAt;
       swipeState.active = false;
       swipeState.pointerId = null;
+      const distance = Math.hypot(dx, dy);
+      if (distance < 18 && elapsed < 500 && handleTapInput()) {
+        event.preventDefault();
+        return;
+      }
       if (elapsed > 900) return;
       const code = swipeToKey(dx, dy);
       if (!code) return;

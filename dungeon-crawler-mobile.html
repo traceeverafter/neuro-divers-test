@@ -45,6 +45,25 @@
       background: var(--bg);
     }
 
+    .pause-fab {
+      position: fixed;
+      right: calc(16px + env(safe-area-inset-right, 0px));
+      top: calc(16px + env(safe-area-inset-top, 0px));
+      z-index: 7;
+      min-width: 74px;
+      min-height: 40px;
+      border: 1px solid rgba(0, 229, 255, .58);
+      border-radius: 10px;
+      background: rgba(5, 11, 18, .76);
+      color: #edf8ff;
+      font: 900 13px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      box-shadow:
+        0 0 14px rgba(0, 229, 255, .16),
+        inset 0 0 10px rgba(0, 229, 255, .08);
+      touch-action: manipulation;
+      user-select: none;
+    }
+
     .combat-overlay {
       position: fixed;
       inset: 0;
@@ -82,6 +101,7 @@
       position: absolute;
       left: 50%;
       top: 28px;
+      z-index: 2;
       display: none;
       align-items: center;
       transform: translateX(-50%);
@@ -118,6 +138,19 @@
 
     .combat-result span {
       display: none;
+    }
+
+    .combat-result-hitarea {
+      position: absolute;
+      inset: 0;
+      z-index: 1;
+      display: none;
+      cursor: pointer;
+      background: rgba(0, 0, 0, 0);
+    }
+
+    .combat-result-hitarea.active {
+      display: block;
     }
 
     .encounter-flash {
@@ -1058,6 +1091,7 @@
 </head>
 <body>
   <canvas id="game" aria-label="NEURO DIVERS Mobile" tabindex="0"></canvas>
+  <button class="pause-fab" id="mobilePauseButton" type="button">MENU</button>
   <div class="screen-overlay active" id="titleOverlay" aria-hidden="false">
     <div class="menu-panel">
       <h1 class="title-logo" aria-label="NEURO DIVERS">
@@ -1109,6 +1143,7 @@
   <div class="combat-overlay" id="combatOverlay" aria-hidden="true">
     <div class="combat-popup">
       <iframe class="combat-frame" id="combatFrame" title="コンバットシステム" tabindex="0"></iframe>
+      <div class="combat-result-hitarea" id="combatResultHitarea" aria-hidden="true"></div>
       <div class="combat-result" id="combatResult">
         <span id="combatResultText">戦闘終了</span>
         <button id="combatContinueButton" type="button">BACK</button>
@@ -1159,8 +1194,10 @@
     const combatOverlay = document.querySelector("#combatOverlay");
     const combatFrame = document.querySelector("#combatFrame");
     const combatResult = document.querySelector("#combatResult");
+    const combatResultHitarea = document.querySelector("#combatResultHitarea");
     const combatResultText = document.querySelector("#combatResultText");
     const combatContinueButton = document.querySelector("#combatContinueButton");
+    const mobilePauseButton = document.querySelector("#mobilePauseButton");
     const encounterFlash = document.querySelector("#encounterFlash");
     const trapFlash = document.querySelector("#trapFlash");
     const titleOverlay = document.querySelector("#titleOverlay");
@@ -1900,6 +1937,7 @@
       state.combatReturnRequested = false;
       state.adventureStats.encounters += 1;
       combatResult.classList.remove("active");
+      combatResultHitarea.classList.remove("active");
       combatOverlay.classList.add("active");
       combatOverlay.setAttribute("aria-hidden", "false");
       const params = new URLSearchParams({
@@ -1943,6 +1981,7 @@
       combatOverlay.classList.remove("active");
       combatOverlay.setAttribute("aria-hidden", "true");
       combatResult.classList.remove("active");
+      combatResultHitarea.classList.remove("active");
       combatFrame.removeAttribute("src");
       restoreDungeonFocus();
     }
@@ -1956,6 +1995,7 @@
       state.pendingCombatResult = result;
       combatResultText.textContent = "";
       combatResult.classList.add("active");
+      combatResultHitarea.classList.add("active");
       combatContinueButton.focus({ preventScroll: true });
       if (state.combatReturnRequested) finishCombatPopup();
     }
@@ -2833,7 +2873,8 @@
     }
 
     function dungeonViewRect(w, h) {
-      return { x: 34, y: 28, w: 760, h: 420 };
+      const viewW = 820;
+      return { x: (w - viewW) / 2, y: 28, w: viewW, h: 420 };
     }
 
     function drawView(w, h) {
@@ -3038,9 +3079,9 @@
     }
 
     function drawHud(w, h) {
-      const panelW = 760;
+      const panelW = 820;
       const panel = {
-        x: 34,
+        x: (w - panelW) / 2,
         y: 622,
         w: panelW,
         h: 112
@@ -3082,10 +3123,10 @@
 
     function drawLogPanel(w, h) {
       const logH = 112;
-      const totalW = 760;
+      const totalW = 820;
       const gap = 10;
       const portrait = {
-        x: 34,
+        x: (w - totalW) / 2,
         y: 492,
         w: logH,
         h: logH
@@ -3352,7 +3393,7 @@
       });
 
       drawCognitiveProfile(r, stats);
-      text("ENTER: TITLE", r.x + 34, r.y + r.h - 30, 17, colors.gold, "900");
+      text("TAP: TITLE", r.x + 34, r.y + r.h - 30, 17, colors.gold, "900");
     }
 
     function drawResultBadges(panel) {
@@ -3822,7 +3863,16 @@
       }
     });
     combatContinueButton.addEventListener("click", finishCombatPopup);
+    combatResultHitarea.addEventListener("click", finishCombatPopup);
+    combatResultHitarea.addEventListener("pointerdown", event => {
+      event.preventDefault();
+      finishCombatPopup();
+    });
     combatFrame.addEventListener("load", focusCombatFrame);
+    mobilePauseButton.addEventListener("click", () => {
+      if (state.mode !== "playing" || state.combatOpen || state.encounterPending || state.showMap || state.gameOver) return;
+      togglePause();
+    });
     startGameButton.addEventListener("click", restart);
     continueGameButton.addEventListener("click", () => continueSavedGame());
     resumeButton.addEventListener("click", resumeGame);
@@ -3901,6 +3951,11 @@
     }, { passive: true });
 
     window.addEventListener("pointerup", event => {
+      if (state.gameOver) {
+        event.preventDefault();
+        reborn();
+        return;
+      }
       if (!swipeState.active || event.pointerId !== swipeState.pointerId) return;
       const dx = event.clientX - swipeState.x;
       const dy = event.clientY - swipeState.y;
