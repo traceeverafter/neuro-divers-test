@@ -1053,14 +1053,14 @@
       min-height: 64px;
       display: grid;
       grid-template-columns: minmax(0, 1fr) auto;
-      gap: 16px;
+      gap: 12px;
       align-items: center;
     }
 
     .hack-sequence {
       position: relative;
       display: flex;
-      gap: 10px;
+      gap: 7px;
       flex-wrap: wrap;
       align-items: center;
       min-width: 0;
@@ -1106,9 +1106,18 @@
         0 0 18px rgba(255, 74, 50, .32);
     }
 
+    .hack-countdown.result {
+      width: 172px;
+      min-width: 172px;
+      padding-inline: 14px;
+      font-size: 22px;
+      letter-spacing: .08em;
+      white-space: nowrap;
+    }
+
     .hack-key {
-      min-width: 44px;
-      padding: 7px 10px;
+      min-width: 40px;
+      padding: 7px 8px;
       border: 1px solid rgba(var(--stage-neon-rgb), .42);
       border-radius: 8px;
       color: var(--hack-key-color, #d9fbff);
@@ -1712,7 +1721,7 @@
       2: { length: 4, time: 3000 },
       3: { length: 5, time: 3000 },
       4: { length: 6, time: 3000 },
-      5: { length: 7, time: 3000 }
+      5: { length: 8, time: 3000 }
     };
     const JAM_EFFECTS = {
       fog: { label: "FOG", turns: 4 },
@@ -2980,6 +2989,12 @@
       return 0;
     }
 
+    function enemyHpFloorBonus(strength) {
+      const depth = Math.max(0, COMBAT_FLOOR - 1);
+      const strengthBonus = { weak: 0, even: 1, strong: 2, boss: 4 }[strength] || 1;
+      return Math.floor(depth * 1.25 + Math.max(0, depth - 4) * 0.75 + strengthBonus);
+    }
+
     function combatFloor() {
       const value = Number.parseInt(COMBAT_PARAMS.get("floor") || "1", 10);
       return Number.isFinite(value) && value > 0 ? value : 1;
@@ -3253,10 +3268,15 @@
     function renderHackPanel(hasError = false) {
       if (!state.hack) return;
       const remaining = Math.max(0, (state.hack.time - (Date.now() - state.hack.startedAt)) / 1000);
-      const remainingText = state.hack.resolving ? (state.hack.success ? "OK" : "NG") : remaining.toFixed(2);
+      const remainingText = state.hack.resolving ? (state.hack.success ? "BREACHED" : "DENIED") : remaining.toFixed(2);
       const effect = JAM_EFFECTS[state.hack.type];
       elements.hackTitle.textContent = `${effect.label} JAM / ${hackModeLabel(state.hack.mode)} / SECURITY LV${state.enemy.hackLevel}`;
-      elements.hackCode.innerHTML = `${hackBodyHtml(hasError)}<span class="hack-countdown ${remaining <= 2 ? "danger" : ""}">${remainingText}</span>`;
+      const countdownClass = [
+        "hack-countdown",
+        remaining <= 2 && !state.hack.resolving ? "danger" : "",
+        state.hack.resolving ? "result" : ""
+      ].filter(Boolean).join(" ");
+      elements.hackCode.innerHTML = `${hackBodyHtml(hasError)}<span class="${countdownClass}">${remainingText}</span>`;
       elements.hackStatus.textContent = hackStatusText();
       elements.hackPanel.classList.add("active");
     }
@@ -3307,7 +3327,7 @@
 
     function hackStatusText() {
       const base = `ATTEMPT ${state.hack.attempt} / LIMIT ${(state.hack.time / 1000).toFixed(2)} / ERROR = FAIL`;
-      if (state.hack.resolving) return state.hack.success ? "ACCESS GRANTED" : "ACCESS DENIED";
+      if (state.hack.resolving) return state.hack.success ? "BREACHED" : "DENIED";
       if (state.hack.mode === "threshold") return `${base} / → WHEN PHASE LOCKS`;
       if (state.hack.mode === "anomaly") return `${base} / FIND THE ODD ARROW`;
       return base;
@@ -3341,7 +3361,7 @@
       state.player.pos = positions.playerPos;
       state.enemy.pos = positions.enemyPos;
       state.player.maxHp = PLAYER_STATS.toughness;
-      state.enemy.maxHp = Math.max(1, Math.ceil(state.enemy.stats.toughness * (ENEMY_STRENGTH_LEVELS[strength]?.hpMultiplier || 1)));
+      state.enemy.maxHp = Math.max(1, Math.ceil(state.enemy.stats.toughness * (ENEMY_STRENGTH_LEVELS[strength]?.hpMultiplier || 1)) + enemyHpFloorBonus(strength));
       state.player.hp = Math.max(1, Math.min(maxHpFor(state.player), PLAYER_START_HP));
       state.enemy.hp = maxHpFor(state.enemy);
       state.enemy.potions = randomEnemyPotions();

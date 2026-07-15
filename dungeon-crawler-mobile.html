@@ -1323,6 +1323,7 @@
         toughness: 1
       },
       map: [],
+      start: { x: START_X, y: START_Y },
       stairs: { x: 1, y: 1 },
       warps: [],
       traps: [],
@@ -1598,8 +1599,9 @@
       state.map = Array.from({ length: MAP_H }, () => Array(MAP_W).fill(WALL));
       carveMaze(START_X, START_Y);
       addLoopConnections();
-      state.x = START_X;
-      state.y = START_Y;
+      state.start = chooseStartTile();
+      state.x = state.start.x;
+      state.y = state.start.y;
       state.dir = 1;
     }
 
@@ -1671,6 +1673,17 @@
       return MAP_FLOOR_PLANS[floor] || MAP_FLOOR_PLANS[10];
     }
 
+    function chooseStartTile() {
+      const candidates = [];
+      for (let y = 3; y < MAP_H - 3; y += 1) {
+        for (let x = 3; x < MAP_W - 3; x += 1) {
+          if (!isWall(x, y)) candidates.push({ x, y });
+        }
+      }
+      if (!candidates.length) return { x: START_X, y: START_Y };
+      return candidates[Math.floor(Math.random() * candidates.length)];
+    }
+
     function isWall(x, y) {
       if (y < 0 || y >= state.map.length) return true;
       if (x < 0 || x >= state.map[y].length) return true;
@@ -1678,21 +1691,19 @@
     }
 
     function placeStairs() {
-      let best = { x: 1, y: 1 };
-      let bestScore = -Infinity;
+      const candidates = [];
       const plan = currentMapFloorPlan();
       for (let y = 0; y < MAP_H; y += 1) {
         for (let x = 0; x < MAP_W; x += 1) {
           if (isWall(x, y)) continue;
           if (x === state.x && y === state.y) continue;
-          const score = stairScore(x, y, plan) + Math.random() * 0.01;
-          if (score > bestScore) {
-            bestScore = score;
-            best = { x, y };
-          }
+          candidates.push({ x, y, score: stairScore(x, y, plan) });
         }
       }
-      state.stairs = best;
+      candidates.sort((a, b) => b.score - a.score);
+      const poolSize = Math.max(8, Math.ceil(candidates.length * 0.08));
+      const pool = candidates.slice(0, poolSize);
+      state.stairs = pool[Math.floor(Math.random() * pool.length)] || { x: 1, y: 1 };
     }
 
     function stairScore(x, y, plan) {
@@ -1701,6 +1712,12 @@
       const dist = dx + dy;
       const edgeDist = Math.min(x, y, MAP_W - 1 - x, MAP_H - 1 - y);
       const centerDist = Math.abs(x - MAP_W / 2) + Math.abs(y - MAP_H / 2);
+      const cornerDist = Math.min(
+        x + y,
+        x + (MAP_H - 1 - y),
+        (MAP_W - 1 - x) + y,
+        (MAP_W - 1 - x) + (MAP_H - 1 - y)
+      );
       const openness = floorNeighborCount(x, y);
       let score = dist;
       if (plan.stairBias === "deep") score += y * 0.35 + x * 0.15;
@@ -1711,6 +1728,7 @@
       if (plan.stairBias === "circuit") score += (MAP_W / 2 - Math.abs(x - MAP_W / 2)) * 0.35 + dist * 0.35;
       if (plan.stairBias === "direct") score += Math.max(dx, dy) * 0.5 - openness * 1.5;
       if (plan.stairBias === "final") score += openness * 2 + dist * 0.35 + centerDist * 0.15;
+      score -= Math.max(0, 8 - cornerDist) * 1.1;
       return score;
     }
 
@@ -1880,7 +1898,7 @@
     }
 
     function isStartTile(pos = { x: state.x, y: state.y }) {
-      return pos.x === START_X && pos.y === START_Y;
+      return pos.x === state.start.x && pos.y === state.start.y;
     }
 
     function isWarpTile(pos) {
@@ -2045,6 +2063,7 @@
     function showCombatResult(result) {
       state.pendingCombatResult = result;
       combatResultText.textContent = "";
+      combatContinueButton.textContent = result?.outcome === "loss" ? "FLATLINE" : "BACK";
       combatResult.classList.add("active");
       combatResultHitarea.classList.add("active");
       combatContinueButton.focus({ preventScroll: true });
@@ -3421,7 +3440,7 @@
       for (let gridY = 0; gridY <= MAP_H; gridY += 1) {
         line(ox, oy + gridY * cell, ox + mapW, oy + gridY * cell, neonRgba(accent, 0.18), 0.5);
       }
-      marker(ox, oy, cell, { x: START_X, y: START_Y }, upperFloorColor());
+      marker(ox, oy, cell, state.start, upperFloorColor());
       marker(ox, oy, cell, state.stairs, nextFloorColor());
       circle(ox + state.x * cell + cell / 2, oy + state.y * cell + cell / 2, Math.max(4, cell * 0.65), colors.mapPlayer);
       const d = dirVector();
@@ -3451,7 +3470,6 @@
 
       const rows = [
         ["DEEPEST FLOOR", `B${stats.deepestFloor}F`],
-        ["STEPS", stats.steps],
         ["DEFEATED", stats.wins],
         ["TOTAL HIT RATE", hitRateText(stats.playerHits, stats.playerAttacks)],
         ["MELEE HIT RATE", hitRateText(stats.meleeHits, stats.meleeAttacks)],
@@ -4043,6 +4061,12 @@
     }, { passive: true });
 
     window.addEventListener("pointerup", event => {
+      if (state.showMap) {
+        event.preventDefault();
+        toggleMap();
+        resetSwipeState();
+        return;
+      }
       if (state.gameOver && state.mode !== "title") {
         event.preventDefault();
         reborn();
