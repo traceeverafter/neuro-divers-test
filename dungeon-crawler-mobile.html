@@ -1174,6 +1174,18 @@
     const WARP_TILE_COUNT = 2;
     const TRAP_TILE_COUNT = 3;
     const TRAP_DEBUFF_BATTLES = 3;
+    const MAP_FLOOR_PLANS = {
+      1: { loopRate: 0.08, stairBias: "far", warpCount: 1, trapCount: 2 },
+      2: { loopRate: 0.1, stairBias: "deep", warpCount: 1, trapCount: 3 },
+      3: { loopRate: 0.18, stairBias: "wide", warpCount: 2, trapCount: 3 },
+      4: { loopRate: 0.09, stairBias: "long-axis", warpCount: 1, trapCount: 4 },
+      5: { loopRate: 0.24, stairBias: "looped", warpCount: 3, trapCount: 3 },
+      6: { loopRate: 0.07, stairBias: "edge", warpCount: 1, trapCount: 4 },
+      7: { loopRate: 0.16, stairBias: "circuit", warpCount: 2, trapCount: 5 },
+      8: { loopRate: 0.12, stairBias: "deep", warpCount: 2, trapCount: 4 },
+      9: { loopRate: 0.08, stairBias: "direct", warpCount: 1, trapCount: 2 },
+      10: { loopRate: 0.2, stairBias: "final", warpCount: 3, trapCount: 5 }
+    };
     const DEFAULT_PLAYER_NAME = "BLADE";
     const SAVE_KEY = "neuro-divers-mobile-save-v1";
     const SAVE_SLOT_COUNT = 3;
@@ -1611,6 +1623,7 @@
     }
 
     function addLoopConnections() {
+      const plan = currentMapFloorPlan();
       for (let y = 1; y < MAP_H - 1; y += 1) {
         for (let x = 1; x < MAP_W - 1; x += 1) {
           if (state.map[y][x] !== WALL) continue;
@@ -1621,7 +1634,7 @@
           if (
             (connectsHorizontal || connectsVertical) &&
             !wouldCreateWideFloor(x, y) &&
-            Math.random() < LOOP_CONNECTION_RATE
+            Math.random() < plan.loopRate
           ) {
             state.map[y][x] = FLOOR;
           }
@@ -1653,6 +1666,11 @@
       return false;
     }
 
+    function currentMapFloorPlan() {
+      const floor = Math.max(1, Math.min(10, state.floor));
+      return MAP_FLOOR_PLANS[floor] || MAP_FLOOR_PLANS[10];
+    }
+
     function isWall(x, y) {
       if (y < 0 || y >= state.map.length) return true;
       if (x < 0 || x >= state.map[y].length) return true;
@@ -1661,13 +1679,15 @@
 
     function placeStairs() {
       let best = { x: 1, y: 1 };
-      let bestDist = -1;
+      let bestScore = -Infinity;
+      const plan = currentMapFloorPlan();
       for (let y = 0; y < MAP_H; y += 1) {
         for (let x = 0; x < MAP_W; x += 1) {
           if (isWall(x, y)) continue;
-          const dist = Math.abs(x - state.x) + Math.abs(y - state.y);
-          if (dist > bestDist) {
-            bestDist = dist;
+          if (x === state.x && y === state.y) continue;
+          const score = stairScore(x, y, plan) + Math.random() * 0.01;
+          if (score > bestScore) {
+            bestScore = score;
             best = { x, y };
           }
         }
@@ -1675,18 +1695,47 @@
       state.stairs = best;
     }
 
+    function stairScore(x, y, plan) {
+      const dx = Math.abs(x - state.x);
+      const dy = Math.abs(y - state.y);
+      const dist = dx + dy;
+      const edgeDist = Math.min(x, y, MAP_W - 1 - x, MAP_H - 1 - y);
+      const centerDist = Math.abs(x - MAP_W / 2) + Math.abs(y - MAP_H / 2);
+      const openness = floorNeighborCount(x, y);
+      let score = dist;
+      if (plan.stairBias === "deep") score += y * 0.35 + x * 0.15;
+      if (plan.stairBias === "wide") score += openness * 3 + dist * 0.15;
+      if (plan.stairBias === "long-axis") score += Math.max(dx, dy) * 0.75 - Math.min(dx, dy) * 0.25;
+      if (plan.stairBias === "looped") score += openness * 4 + centerDist * 0.1;
+      if (plan.stairBias === "edge") score += (MAP_W / 2 - edgeDist) * 1.2 + dist * 0.25;
+      if (plan.stairBias === "circuit") score += (MAP_W / 2 - Math.abs(x - MAP_W / 2)) * 0.35 + dist * 0.35;
+      if (plan.stairBias === "direct") score += Math.max(dx, dy) * 0.5 - openness * 1.5;
+      if (plan.stairBias === "final") score += openness * 2 + dist * 0.35 + centerDist * 0.15;
+      return score;
+    }
+
+    function floorNeighborCount(x, y) {
+      return [
+        [x, y - 1],
+        [x + 1, y],
+        [x, y + 1],
+        [x - 1, y]
+      ].filter(([tx, ty]) => !isWall(tx, ty)).length;
+    }
+
     function placeSpecialTiles() {
       state.warps = [];
       state.traps = [];
+      const plan = currentMapFloorPlan();
       const blocked = new Set([posKey({ x: state.x, y: state.y }), posKey(state.stairs)]);
-      for (let index = 0; index < WARP_TILE_COUNT; index += 1) {
+      for (let index = 0; index < (plan.warpCount ?? WARP_TILE_COUNT); index += 1) {
         const tile = randomOpenTile(blocked);
         if (tile) {
           state.warps.push(tile);
           blocked.add(posKey(tile));
         }
       }
-      for (let index = 0; index < TRAP_TILE_COUNT; index += 1) {
+      for (let index = 0; index < (plan.trapCount ?? TRAP_TILE_COUNT); index += 1) {
         const tile = randomOpenTile(blocked);
         if (tile) {
           state.traps.push(tile);
@@ -2215,6 +2264,10 @@
       state.credits -= MAP_PRICE;
       state.showMap = true;
       addLog(`Radar scan complete. CREDIT -${MAP_PRICE}.`);
+      if (state.mode === "paused") {
+        state.mode = "playing";
+        hidePause();
+      }
       saveIfOnStartTile();
       draw();
     }
@@ -2257,7 +2310,7 @@
       const isJammer = kind === "jammer";
       const levelKey = isJammer ? "jammerLevel" : isMelee ? "meleeWeaponLevel" : "shootingWeaponLevel";
       const label = isJammer ? "JAMMER" : isMelee ? MELEE_WEAPON_NAME : SHOOTING_WEAPON_NAME;
-      const cost = weaponUpgradeCost(state[levelKey]);
+      const cost = weaponUpgradeCost(state[levelKey], kind);
 
       if (state[levelKey] >= MAX_WEAPON_LEVEL) {
         addLog(`${label} is already at maximum upgrade.`);
@@ -2278,9 +2331,10 @@
       draw();
     }
 
-    function weaponUpgradeCost(level) {
+    function weaponUpgradeCost(level, kind = "") {
       const costs = [300, 500, 800, 1100, 1500, 2000];
-      return costs[Math.max(0, Math.min(costs.length - 1, level - 1))];
+      const paidUpgradeIndex = kind === "jammer" ? level - 2 : level - 1;
+      return costs[Math.max(0, Math.min(costs.length - 1, paidUpgradeIndex))];
     }
 
     function learnSkill(skill) {
@@ -2714,7 +2768,7 @@
           label: "短刀",
           level: state.meleeWeaponLevel,
           damage: meleeWeaponDamage(),
-          cost: weaponUpgradeCost(state.meleeWeaponLevel)
+          cost: weaponUpgradeCost(state.meleeWeaponLevel, "melee")
         },
         {
           kind: "weapon",
@@ -2722,7 +2776,7 @@
           label: "銃",
           level: state.shootingWeaponLevel,
           damage: shootingWeaponDamage(),
-          cost: weaponUpgradeCost(state.shootingWeaponLevel)
+          cost: weaponUpgradeCost(state.shootingWeaponLevel, "shoot")
         },
         {
           kind: "weapon",
@@ -2731,7 +2785,7 @@
           level: state.jammerLevel,
           damage: jammerBonusSeconds(),
           hitPenalty: jammerHitPenaltyBonus(),
-          cost: weaponUpgradeCost(state.jammerLevel)
+          cost: weaponUpgradeCost(state.jammerLevel, "jammer")
         }
       ].map(weapon => {
         const capped = weapon.level >= MAX_WEAPON_LEVEL;
@@ -2962,13 +3016,19 @@
           drawCeilingTileHighlight(ceilingTilePoints(fs, depth), upperFloorColor(), depth);
         }
         if (depth > 0 && same(pos, state.stairs)) {
-          drawFloorTileHighlight(floorTilePoints(fs, depth), nextFloorColor(), depth);
+          const points = floorTilePoints(fs, depth);
+          drawFloorTileHighlight(points, nextFloorColor(), depth);
+          drawFloorTileIcon(points, "↓", nextFloorColor(), depth);
         }
         if (depth > 0 && canRevealHazards() && isWarpTile(pos)) {
-          drawFloorTileHighlight(floorTilePoints(fs, depth), "#9a7cff", depth);
+          const points = floorTilePoints(fs, depth);
+          drawFloorTileHighlight(points, "#9a7cff", depth);
+          drawFloorTileIcon(points, "◇", "#9a7cff", depth);
         }
         if (depth > 0 && canRevealHazards() && isTrapTile(pos)) {
-          drawFloorTileHighlight(floorTilePoints(fs, depth), "#ff4fd8", depth);
+          const points = floorTilePoints(fs, depth);
+          drawFloorTileHighlight(points, "#ff4fd8", depth);
+          drawFloorTileIcon(points, "!", "#ff4fd8", depth);
         }
       }
     }
@@ -3019,6 +3079,26 @@
       ctx.strokeStyle = color;
       ctx.shadowBlur = Math.max(4, 14 - depth * 2);
       strokePanelPath(points);
+      ctx.restore();
+    }
+
+    function drawFloorTileIcon(points, icon, color, depth) {
+      const bounds = panelBounds(points);
+      const center = {
+        x: (points[0][0] + points[1][0] + points[2][0] + points[3][0]) / 4,
+        y: (points[0][1] + points[1][1] + points[2][1] + points[3][1]) / 4
+      };
+      const size = Math.max(12, Math.min(34, bounds.h * 0.42));
+
+      ctx.save();
+      ctx.globalCompositeOperation = "lighter";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.font = `900 ${size}px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace`;
+      ctx.shadowColor = color;
+      ctx.shadowBlur = Math.max(8, 20 - depth * 2.4);
+      ctx.fillStyle = "rgba(255, 255, 255, 0.92)";
+      ctx.fillText(icon, center.x, center.y + bounds.h * 0.04);
       ctx.restore();
     }
 

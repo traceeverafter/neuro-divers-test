@@ -120,6 +120,46 @@
       z-index: 0;
     }
 
+    .roll-history {
+      position: absolute;
+      left: 22px;
+      right: 22px;
+      bottom: 12px;
+      z-index: 0;
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      min-height: 22px;
+      pointer-events: none;
+      overflow: hidden;
+      opacity: .62;
+      mask-image: linear-gradient(90deg, transparent, #000 16%, #000 100%);
+    }
+
+    .roll-history-value {
+      flex: 0 0 auto;
+      min-width: 28px;
+      font: 900 15px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      line-height: 1;
+      text-align: right;
+      color: rgba(255, 255, 255, .86);
+      text-shadow: 0 0 8px rgba(255, 255, 255, .2);
+    }
+
+    .roll-history-value.player {
+      color: rgba(184, 222, 255, .98);
+      text-shadow:
+        0 0 8px rgba(76, 140, 255, .62),
+        0 0 16px rgba(76, 140, 255, .28);
+    }
+
+    .roll-history-value.enemy {
+      color: rgba(255, 178, 168, .98);
+      text-shadow:
+        0 0 8px rgba(255, 74, 50, .62),
+        0 0 16px rgba(255, 74, 50, .28);
+    }
+
     .scene-copy {
       display: none;
     }
@@ -1504,6 +1544,7 @@
     <div class="layout">
       <section class="arena" aria-label="戦闘フィールド">
         <div class="encounter-scene" aria-label="遭遇シーン">
+          <div class="roll-history" id="rollHistory" aria-hidden="true"></div>
           <div class="scene-copy">
             <div class="scene-title" id="sceneTitle">闇の中から敵が現れた</div>
             <div class="scene-text" id="sceneText">湿った石壁の向こうで、金属の擦れる音が近づいてくる。</div>
@@ -1836,6 +1877,18 @@
         { name: "VOID KOMUSO", logImage: "enemy-void-komuso.png", statMod: { meleeSkill: -2, shootingSkill: 4, agility: 0, toughness: 1 }, attackMod: { melee: 0, shoot: 1 }, feature: "虚無僧笠の奥で無音の演算が巡り、尺八型デバイスから呪波を放つ。" }
       ]
     };
+    const ENEMY_FLOOR_PLANS = {
+      1: { pool: ["SEWER RATMAN", "GUTTER GOBLIN", "WIRE GOBLIN", "CRYPT RUNNER", "HEX SKELETON"], boss: "WIRED ORC" },
+      2: { pool: ["HEX SKELETON", "SKELETON GUNNER", "CRYPT RUNNER", "NEON MUMMY", "SEWER RATMAN"], boss: "MUMMY OPERATIVE" },
+      3: { pool: ["WIRED ORC", "CHROME ORC", "ORC TRIGGERMAN", "WIRE GOBLIN", "CHROME LIZARDMAN"], boss: "BONE OGRE" },
+      4: { pool: ["SKELETON GUNNER", "MUMMY OPERATIVE", "HEX SKELETON", "DARK ELF WIZARD", "VOID KOMUSO"], boss: "DEMON SNIPER" },
+      5: { pool: ["CRYPT RUNNER", "NEON NINJA", "GUTTER GOBLIN", "WIRE GOBLIN", "DARK ELF WIZARD"], boss: "NEON NINJA" },
+      6: { pool: ["BONE OGRE", "IRON DEMON", "CHROME ORC", "MUMMY BRUTE", "CHROME LIZARDMAN"], boss: "IRON DEMON" },
+      7: { pool: ["DARK ELF WIZARD", "VOID KOMUSO", "NEON MUMMY", "DEMON SNIPER", "MUMMY OPERATIVE"], boss: "DARK ELF WIZARD" },
+      8: { pool: ["HELLFORGED DEMON", "IRON DEMON", "DEMON SNIPER", "BONE OGRE", "MUMMY BRUTE"], boss: "HELLFORGED DEMON" },
+      9: { pool: ["SAMURAI OGRE", "NEON NINJA", "CHROME LIZARDMAN", "HELLFORGED DEMON", "VOID KOMUSO"], boss: "SAMURAI OGRE" },
+      10: { pool: ["SAMURAI OGRE", "HELLFORGED DEMON", "DARK ELF WIZARD", "DEMON SNIPER", "IRON DEMON"], boss: "SAMURAI OGRE" }
+    };
     const ENEMY_TRAITS = [
       { prefix: "GLITCH", statMod: { meleeSkill: -2, shootingSkill: 3, agility: 2, toughness: -1 }, attackMod: { melee: 0, shoot: 1 }, feature: "動作にノイズが混じるが、予測しにくい射撃パターンを持つ。" },
       { prefix: "RAZOR", statMod: { meleeSkill: 4, shootingSkill: -1, agility: 1, toughness: -1 }, attackMod: { melee: 1, shoot: 0 }, feature: "刃物状の増設パーツが、接近戦の危険度を高めている。" },
@@ -2041,6 +2094,7 @@
       hackAttempts: { fog: 0, paralyze: 0 },
       moveChainActive: false,
       moveStepsRemaining: 0,
+      rollHistory: [],
       attackRolls: { player: null, enemy: null },
       attackRollTimers: { player: null, enemy: null },
       selectedCommand: "forward",
@@ -2099,6 +2153,7 @@
       hackCode: document.querySelector("#hackCode"),
       hackStatus: document.querySelector("#hackStatus")
     };
+    elements.rollHistory = document.querySelector("#rollHistory");
     const COMMANDS = [
       { key: "back", button: elements.backButton, run: () => move("back") },
       { key: "forward", button: elements.forwardButton, run: () => move("forward") },
@@ -2546,6 +2601,7 @@
     function setAttackRoll(unit, roll, isHit) {
       const side = unit.side;
       const otherSide = side === "player" ? "enemy" : "player";
+      pushRollHistory(roll, side);
       if (state.attackRollTimers[otherSide]) window.clearTimeout(state.attackRollTimers[otherSide]);
       state.attackRolls[otherSide] = null;
       state.attackRollTimers[otherSide] = null;
@@ -2557,6 +2613,29 @@
         if (state.gameOver) return;
         render();
       }, 2000);
+    }
+
+    function pushRollHistory(roll, side) {
+      state.rollHistory.push({ roll: Math.max(1, Math.min(100, roll)), side });
+      state.rollHistory = state.rollHistory.slice(-40);
+    }
+
+    function renderRollHistory() {
+      if (!elements.rollHistory) return;
+      const history = state.rollHistory || [];
+      if (history.length === 0) {
+        elements.rollHistory.innerHTML = "";
+        return;
+      }
+      elements.rollHistory.innerHTML = history
+        .slice(-22)
+        .map(entry => {
+          const roll = typeof entry === "number" ? entry : entry.roll;
+          const side = typeof entry === "number" ? "" : entry.side;
+          const className = ["roll-history-value", side].filter(Boolean).join(" ");
+          return `<span class="${className}">${String(roll).padStart(2, "0")}</span>`;
+        })
+        .join("");
     }
 
     function performAttack(attacker, defender, kind, options = {}) {
@@ -2748,19 +2827,44 @@
     }
 
     function randomEnemyType() {
+      const entry = randomFloorSpeciesEntry();
+      if (entry) return entry.type;
       const types = Object.keys(ENEMY_TYPES);
       return types[Math.floor(Math.random() * types.length)];
     }
 
-    function randomEnemyProfile(type) {
-      const speciesList = ENEMY_SPECIES[type] || ENEMY_SPECIES.balanced;
-      const species = speciesList[Math.floor(Math.random() * speciesList.length)];
+    function enemyFloorPlan() {
+      const floor = Math.max(1, Math.min(10, COMBAT_FLOOR));
+      return ENEMY_FLOOR_PLANS[floor] || ENEMY_FLOOR_PLANS[10];
+    }
+
+    function enemySpeciesEntries() {
+      return Object.entries(ENEMY_SPECIES).flatMap(([type, speciesList]) => speciesList.map(species => ({ type, species })));
+    }
+
+    function findEnemySpeciesEntry(name) {
+      return enemySpeciesEntries().find(entry => entry.species.name === name);
+    }
+
+    function randomFloorSpeciesEntry(strength = "", type = "") {
+      const plan = enemyFloorPlan();
+      const names = strength === "boss" ? [plan.boss] : plan.pool;
+      let candidates = names.map(findEnemySpeciesEntry).filter(Boolean);
+      if (type) candidates = candidates.filter(entry => entry.type === type);
+      if (!candidates.length) candidates = enemySpeciesEntries().filter(entry => !type || entry.type === type);
+      return candidates[Math.floor(Math.random() * candidates.length)];
+    }
+
+    function randomEnemyProfile(type, strength = "") {
+      const entry = randomFloorSpeciesEntry(strength, type);
+      const species = entry?.species || (ENEMY_SPECIES[type] || ENEMY_SPECIES.balanced)[0];
       const trait = ENEMY_TRAITS[Math.floor(Math.random() * ENEMY_TRAITS.length)];
-      const useTraitPrefix = trait.prefix !== "NULL" && Math.random() < 0.68;
+      const useTraitPrefix = strength !== "boss" && trait.prefix !== "NULL" && Math.random() < 0.68;
       return {
         name: useTraitPrefix ? `${trait.prefix} ${species.name}` : species.name,
         species,
-        trait
+        trait,
+        type: entry?.type || type
       };
     }
 
@@ -2888,10 +2992,11 @@
     }
 
     function configureEnemyType(type, strength) {
-      const config = ENEMY_TYPES[type];
+      const profile = randomEnemyProfile(type, strength);
+      const resolvedType = profile.type || type;
+      const config = ENEMY_TYPES[resolvedType] || ENEMY_TYPES.balanced;
       const strengthConfig = ENEMY_STRENGTH_LEVELS[strength];
-      const profile = randomEnemyProfile(type);
-      state.enemyType = type;
+      state.enemyType = resolvedType;
       state.enemyStrength = strength;
       state.enemy.name = profile.name;
       state.enemy.typeLabel = config.typeLabel;
@@ -2983,7 +3088,7 @@
         timer: null,
         interval: null
       };
-      addLog(`${JAM_EFFECTS[type].label}ジャミング TRY ${attempt}。${hackModeLabel(mode)}を突破してください。`);
+      addLog(`${JAM_EFFECTS[type].label} JAM / ATTEMPT ${attempt} / SECURITY LV${state.enemy.hackLevel}。${hackModeLabel(mode)}を突破してください。`);
       renderHackPanel();
       state.hack.timer = window.setTimeout(() => finishHack(false, "TIME OUT"), time);
       state.hack.interval = window.setInterval(renderHackPanel, 40);
@@ -3150,7 +3255,7 @@
       const remaining = Math.max(0, (state.hack.time - (Date.now() - state.hack.startedAt)) / 1000);
       const remainingText = state.hack.resolving ? (state.hack.success ? "OK" : "NG") : remaining.toFixed(2);
       const effect = JAM_EFFECTS[state.hack.type];
-      elements.hackTitle.textContent = `${effect.label} JAM / ${hackModeLabel(state.hack.mode)} / LV${state.enemy.hackLevel}`;
+      elements.hackTitle.textContent = `${effect.label} JAM / ${hackModeLabel(state.hack.mode)} / SECURITY LV${state.enemy.hackLevel}`;
       elements.hackCode.innerHTML = `${hackBodyHtml(hasError)}<span class="hack-countdown ${remaining <= 2 ? "danger" : ""}">${remainingText}</span>`;
       elements.hackStatus.textContent = hackStatusText();
       elements.hackPanel.classList.add("active");
@@ -3201,7 +3306,7 @@
     }
 
     function hackStatusText() {
-      const base = `TRY ${state.hack.attempt} / LIMIT ${(state.hack.time / 1000).toFixed(2)} / ERROR = FAIL`;
+      const base = `ATTEMPT ${state.hack.attempt} / LIMIT ${(state.hack.time / 1000).toFixed(2)} / ERROR = FAIL`;
       if (state.hack.resolving) return state.hack.success ? "ACCESS GRANTED" : "ACCESS DENIED";
       if (state.hack.mode === "threshold") return `${base} / → WHEN PHASE LOCKS`;
       if (state.hack.mode === "anomaly") return `${base} / FIND THE ODD ARROW`;
@@ -3223,6 +3328,7 @@
       if (state.hack?.interval) window.clearInterval(state.hack.interval);
       state.hack = null;
       state.hackAttempts = { fog: 0, paralyze: 0 };
+      state.rollHistory = [];
       clearMoveChain();
       clearAttackRolls();
       elements.hackPanel.classList.remove("active");
@@ -3464,6 +3570,7 @@
         .map(([shootDistance, rate]) => `距離${shootDistance}: ${rate}%`)
         .join(" / ");
 
+      renderRollHistory();
       renderBoard();
       if (elements.turnDot) {
         elements.turnDot.style.background = active.side === "player" ? "var(--blue)" : "var(--red)";
