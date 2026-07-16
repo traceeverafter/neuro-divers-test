@@ -99,6 +99,18 @@
       display: flex;
     }
 
+    .combat-result.flatline {
+      border-color: rgba(227, 53, 53, .86);
+      box-shadow:
+        0 0 24px rgba(227, 53, 53, .28),
+        inset 0 0 18px rgba(227, 53, 53, .09);
+    }
+
+    .combat-result.flatline button {
+      color: #ffb4b4;
+      text-shadow: 0 0 10px rgba(227, 53, 53, .68);
+    }
+
     .combat-result button {
       min-height: 34px;
       padding: 0 22px;
@@ -1296,7 +1308,8 @@
       saveSlotIndex: null,
       bossDefeatedFloors: new Set(),
       adventureStats: createAdventureStats(),
-      gameOver: false
+      gameOver: false,
+      resultPage: 0
     };
 
     const colors = {
@@ -1399,7 +1412,11 @@
         phaseLockAttempts: 0,
         phaseLockSuccesses: 0,
         anomalyScanAttempts: 0,
-        anomalyScanSuccesses: 0
+        anomalyScanSuccesses: 0,
+        missingVectorAttempts: 0,
+        missingVectorSuccesses: 0,
+        iceGateAttempts: 0,
+        iceGateSuccesses: 0
       };
     }
 
@@ -1439,6 +1456,7 @@
       state.bossDefeatedFloors = new Set();
       state.adventureStats = createAdventureStats();
       state.gameOver = false;
+      state.resultPage = 0;
       state.mode = "playing";
       state.log = [];
       hideTitle();
@@ -1498,6 +1516,8 @@
     }
 
     function reborn() {
+      state.gameOver = false;
+      state.resultPage = 0;
       hideTitleConfirm();
       closeCombatPopup();
       hidePause();
@@ -1823,6 +1843,7 @@
       if (state.encounterPending || state.showMap) return false;
       if (isWall(pos.x, pos.y)) {
         addLog("A wall blocks the way.");
+        playWallBumpSound();
         draw();
         return false;
       }
@@ -1964,6 +1985,7 @@
       state.combatReturnRequested = false;
       state.adventureStats.encounters += 1;
       combatResult.classList.remove("active");
+      combatResult.classList.remove("flatline");
       combatOverlay.classList.add("active");
       combatOverlay.setAttribute("aria-hidden", "false");
       const params = new URLSearchParams({
@@ -2007,6 +2029,7 @@
       combatOverlay.classList.remove("active");
       combatOverlay.setAttribute("aria-hidden", "true");
       combatResult.classList.remove("active");
+      combatResult.classList.remove("flatline");
       combatFrame.removeAttribute("src");
       restoreDungeonFocus();
     }
@@ -2020,6 +2043,7 @@
       state.pendingCombatResult = result;
       combatResultText.textContent = "";
       combatContinueButton.textContent = result?.outcome === "loss" ? "FLATLINE" : "BACK";
+      combatResult.classList.toggle("flatline", result?.outcome === "loss");
       combatResult.classList.add("active");
       combatContinueButton.focus({ preventScroll: true });
       if (state.combatReturnRequested) finishCombatPopup();
@@ -2055,6 +2079,7 @@
         state.adventureStats.losses += 1;
         state.hp = 0;
         state.gameOver = true;
+        state.resultPage = 0;
         addLog("You fall in the dungeon.");
       }
       const clearedDebuffs = [];
@@ -2111,7 +2136,11 @@
         "phaseLockAttempts",
         "phaseLockSuccesses",
         "anomalyScanAttempts",
-        "anomalyScanSuccesses"
+        "anomalyScanSuccesses",
+        "missingVectorAttempts",
+        "missingVectorSuccesses",
+        "iceGateAttempts",
+        "iceGateSuccesses"
       ];
       for (const key of keys) {
         state.adventureStats[key] += Number.isFinite(battleStats[key]) ? battleStats[key] : 0;
@@ -2160,6 +2189,42 @@
         noise.start(now);
         noise.stop(now + 0.09);
       });
+    }
+
+    function playWallBumpSound() {
+      const context = getAudioContext();
+      if (!context) return;
+
+      const now = context.currentTime;
+      const noise = context.createBufferSource();
+      const filter = context.createBiquadFilter();
+      const noiseGain = context.createGain();
+      const thud = context.createOscillator();
+      const thudGain = context.createGain();
+
+      noise.buffer = createNoiseBuffer(context, 0.12);
+      filter.type = "lowpass";
+      filter.frequency.setValueAtTime(120, now);
+      filter.frequency.exponentialRampToValueAtTime(58, now + 0.11);
+      filter.Q.setValueAtTime(1.1, now);
+
+      noiseGain.gain.setValueAtTime(0.0001, now);
+      noiseGain.gain.exponentialRampToValueAtTime(0.34, now + 0.008);
+      noiseGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.12);
+
+      thud.type = "sine";
+      thud.frequency.setValueAtTime(92, now);
+      thud.frequency.exponentialRampToValueAtTime(42, now + 0.13);
+      thudGain.gain.setValueAtTime(0.0001, now);
+      thudGain.gain.exponentialRampToValueAtTime(0.28, now + 0.01);
+      thudGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.15);
+
+      noise.connect(filter).connect(noiseGain).connect(context.destination);
+      thud.connect(thudGain).connect(context.destination);
+      noise.start(now);
+      noise.stop(now + 0.13);
+      thud.start(now);
+      thud.stop(now + 0.16);
     }
 
     function playEncounterSound() {
@@ -3381,37 +3446,49 @@
     }
 
     function drawGameOver(w, h) {
-      const panelW = Math.min(720, w * 0.6);
-      const view = dungeonViewRect(w, h);
-      const viewCenterX = view.x + view.w / 2;
-      const r = { x: Math.max(28, viewCenterX - panelW / 2), y: Math.max(52, h * 0.1), w: panelW, h: 500 };
+      const r = resultPanelRect(w, h);
       const stats = state.adventureStats;
       ctx.globalAlpha = 0.9;
       fillRect(r, "#000");
       ctx.globalAlpha = 1;
       strokeRect(r, colors.red, 3);
-      text("GAME OVER", r.x + 30, r.y + 44, 28, colors.red, "900");
-      text(`${state.playerName} / ADVENTURE RESULT`, r.x + 32, r.y + 76, 14, colors.muted, "850");
+      text("ADVENTURE RESULT", r.x + 30, r.y + 48, 28, colors.red, "900");
       drawResultBadges(r);
 
-      const rows = [
+      if (state.resultPage === 1) {
+        drawJamResultPage(r, stats);
+        return;
+      }
+      drawAdventureResultPage(r, stats);
+    }
+
+    function resultPanelRect(w, h) {
+      const panelW = Math.min(720, w * 0.6);
+      const view = dungeonViewRect(w, h);
+      const viewCenterX = view.x + view.w / 2;
+      return { x: Math.max(28, viewCenterX - panelW / 2), y: Math.max(52, h * 0.1), w: panelW, h: 500 };
+    }
+
+    function drawAdventureResultPage(r, stats) {
+      const leftRows = [
         ["DEEPEST FLOOR", `B${stats.deepestFloor}F`],
         ["DEFEATED", stats.wins],
+        ["EXP EARNED", stats.expEarned],
+        ["CREDIT EARNED", stats.creditsEarned],
+        ["DAMAGE NET", stats.damageDealt - stats.damageTaken]
+      ];
+      const rightRows = [
         ["TOTAL HIT RATE", hitRateText(stats.playerHits, stats.playerAttacks)],
         ["MELEE HIT RATE", hitRateText(stats.meleeHits, stats.meleeAttacks)],
         ["SHOOT HIT RATE", hitRateText(stats.shootHits, stats.shootAttacks)],
         ["DAMAGE DEALT", stats.damageDealt],
-        ["DAMAGE TAKEN", stats.damageTaken],
-        ["EXP EARNED", stats.expEarned],
-        ["CREDIT EARNED", stats.creditsEarned],
-        ["CODE TRACE", hitRateText(stats.codeTraceSuccesses, stats.codeTraceAttempts)],
-        ["PHASE LOCK", hitRateText(stats.phaseLockSuccesses, stats.phaseLockAttempts)],
-        ["ANOMALY SCAN", hitRateText(stats.anomalyScanSuccesses, stats.anomalyScanAttempts)]
+        ["DAMAGE TAKEN", stats.damageTaken]
       ];
-
-      rows.forEach(([label, value], index) => {
-        const col = index < 7 ? 0 : 1;
-        const row = index % 7;
+      text("ADVENTURE SUMMARY", r.x + 34, r.y + 88, 12, colors.gold, "900");
+      text("COMBAT RATING", r.x + 34 + r.w / 2, r.y + 88, 12, colors.gold, "900");
+      [...leftRows.map(row => [0, row]), ...rightRows.map(row => [1, row])].forEach(([col, rowData], index) => {
+        const row = col === 0 ? index : index - leftRows.length;
+        const [label, value] = rowData;
         const x = r.x + 34 + col * (r.w / 2);
         const y = r.y + 118 + row * 34;
         text(label, x, y, 12, colors.muted, "850");
@@ -3419,7 +3496,26 @@
       });
 
       drawCognitiveProfile(r, stats);
-      text("ENTER: TITLE", r.x + 34, r.y + r.h - 30, 17, colors.gold, "900");
+      text("ENTER: JAM TESTS", r.x + 34, r.y + r.h - 30, 17, colors.gold, "900");
+      text("RIGHT: JAM TESTS", r.x + r.w - 184, r.y + r.h - 30, 13, colors.muted, "850");
+    }
+
+    function drawJamResultPage(r, stats) {
+      text("JAM TEST RESULT", r.x + 34, r.y + 88, 15, colors.gold, "900");
+      drawJamRadarChart(r, stats);
+      drawJamDetailTable(r, stats);
+      drawResultBackButton(r);
+      text("ENTER: TITLE", r.x + r.w - 142, r.y + r.h - 30, 17, colors.gold, "900");
+    }
+
+    function drawResultBackButton(panel) {
+      const button = resultBackButtonRect(panel);
+      roundRect(button, "rgba(8, 12, 18, 0.9)", colors.panelBorder, 1, 8);
+      text("BACK", button.x + 22, button.y + 24, 14, colors.line, "900");
+    }
+
+    function resultBackButtonRect(panel) {
+      return { x: panel.x + 30, y: panel.y + panel.h - 52, w: 92, h: 34 };
     }
 
     function drawResultBadges(panel) {
@@ -3461,6 +3557,124 @@
       return `${Math.round((hits / attempts) * 100)}% (${hits}/${attempts})`;
     }
 
+    function hitPercentText(hits, attempts) {
+      if (!attempts) return "N/A";
+      return `${Math.round((hits / attempts) * 100)}%`;
+    }
+
+    function jamMetrics(stats) {
+      return [
+        { label: "CODE", full: "CODE TRACE", cognition: "MEMORY", hits: stats.codeTraceSuccesses, attempts: stats.codeTraceAttempts },
+        { label: "PHASE", full: "PHASE LOCK", cognition: "TIMING", hits: stats.phaseLockSuccesses, attempts: stats.phaseLockAttempts },
+        { label: "ANOMALY", full: "ANOMALY SCAN", cognition: "SEARCH", hits: stats.anomalyScanSuccesses, attempts: stats.anomalyScanAttempts },
+        { label: "VECTOR", full: "MISSING VECTOR", cognition: "COMPLETE", hits: stats.missingVectorSuccesses, attempts: stats.missingVectorAttempts },
+        { label: "ICE", full: "ICE GATE", cognition: "INHIBIT", hits: stats.iceGateSuccesses, attempts: stats.iceGateAttempts }
+      ].map(metric => {
+        const rate = metric.attempts ? metric.hits / metric.attempts : 0;
+        return {
+          ...metric,
+          rate,
+          value: metric.attempts ? `${Math.round(rate * 100)}%` : "N/A"
+        };
+      });
+    }
+
+    function drawJamRadarChart(panel, stats) {
+      const metrics = jamMetrics(stats);
+      const box = { x: panel.x + 30, y: panel.y + 216, w: panel.w - 60, h: 216 };
+      roundRect(box, "rgba(8, 12, 18, 0.92)", colors.panelBorder, 1, 8);
+      text("JAM TEST RADAR", box.x + 16, box.y + 25, 13, colors.muted, "850");
+
+      const cx = box.x + box.w / 2;
+      const cy = box.y + 122;
+      const radius = 72;
+      const angleOffset = -Math.PI / 2;
+      const pointFor = (index, scale) => {
+        const angle = angleOffset + index * Math.PI * 2 / metrics.length;
+        return {
+          x: cx + Math.cos(angle) * radius * scale,
+          y: cy + Math.sin(angle) * radius * scale
+        };
+      };
+
+      ctx.save();
+      for (let ring = 1; ring <= 4; ring += 1) {
+        ctx.beginPath();
+        metrics.forEach((_, index) => {
+          const p = pointFor(index, ring / 4);
+          if (index === 0) ctx.moveTo(p.x, p.y);
+          else ctx.lineTo(p.x, p.y);
+        });
+        ctx.closePath();
+        ctx.strokeStyle = ring === 4 ? "rgba(240, 196, 65, .42)" : "rgba(154, 168, 189, .2)";
+        ctx.lineWidth = ring === 4 ? 1.4 : 1;
+        ctx.stroke();
+      }
+      metrics.forEach((_, index) => {
+        const p = pointFor(index, 1);
+        line(cx, cy, p.x, p.y, "rgba(154, 168, 189, .18)", 1);
+      });
+      ctx.beginPath();
+      metrics.forEach((metric, index) => {
+        const p = pointFor(index, Math.max(0, Math.min(1, metric.rate)));
+        if (index === 0) ctx.moveTo(p.x, p.y);
+        else ctx.lineTo(p.x, p.y);
+      });
+      ctx.closePath();
+      ctx.fillStyle = "rgba(0, 229, 255, .18)";
+      ctx.strokeStyle = colors.neonWalls[0];
+      ctx.lineWidth = 2.2;
+      ctx.fill();
+      ctx.stroke();
+      ctx.restore();
+
+      metrics.forEach((metric, index) => {
+        const labelPoint = pointFor(index, 1.34);
+        ctx.save();
+        ctx.textAlign = "center";
+        ctx.fillStyle = colors.line;
+        ctx.font = "850 11px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace";
+        ctx.fillText(metric.label, labelPoint.x, labelPoint.y);
+        ctx.fillStyle = colors.muted;
+        ctx.font = "750 9px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace";
+        ctx.fillText(metric.cognition, labelPoint.x, labelPoint.y + 13);
+        ctx.fillStyle = metric.attempts ? colors.gold : colors.muted;
+        ctx.font = "900 12px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace";
+        ctx.fillText(metric.value, labelPoint.x, labelPoint.y + 28);
+        ctx.restore();
+      });
+    }
+
+    function drawJamDetailTable(panel, stats) {
+      const metrics = jamMetrics(stats);
+      const box = { x: panel.x + 30, y: panel.y + 104, w: panel.w - 60, h: 96 };
+      roundRect(box, "rgba(8, 12, 18, 0.92)", colors.panelBorder, 1, 8);
+      const headers = [
+        ["TEST", box.x + 16],
+        ["COGNITION", box.x + 178],
+        ["RATE", box.x + box.w - 194],
+        ["SUCCESS", box.x + box.w - 130],
+        ["ATTEMPT", box.x + box.w - 60]
+      ];
+      headers.forEach(([label, x]) => {
+        ctx.save();
+        ctx.textAlign = label === "ATTEMPT" ? "right" : "left";
+        text(label, x, box.y + 22, 10, colors.muted, "850");
+        ctx.restore();
+      });
+      metrics.forEach((metric, index) => {
+        const y = box.y + 41 + index * 11.5;
+        text(metric.full, box.x + 16, y, 10, colors.line, "850");
+        text(metric.cognition, box.x + 178, y, 9, colors.muted, "750");
+        text(metric.value, box.x + box.w - 194, y, 10, metric.attempts ? colors.gold : colors.muted, "900");
+        text(String(metric.hits), box.x + box.w - 130, y, 10, colors.line, "900");
+        ctx.save();
+        ctx.textAlign = "right";
+        text(String(metric.attempts), box.x + box.w - 60, y, 10, colors.line, "900");
+        ctx.restore();
+      });
+    }
+
     function drawCognitiveProfile(panel, stats) {
       const profile = cognitiveProfileFor(stats);
       const box = { x: panel.x + 30, y: panel.y + 360, w: panel.w - 60, h: 82 };
@@ -3495,6 +3709,22 @@
           success: stats.anomalyScanSuccesses,
           attempts: stats.anomalyScanAttempts,
           detail: "視覚探索と違和感検出が高い。群れの中の異物を見抜く。"
+        },
+        {
+          key: "missing",
+          title: "VECTOR COMPLETER",
+          color: colors.neonWalls[4],
+          success: stats.missingVectorSuccesses,
+          attempts: stats.missingVectorAttempts,
+          detail: "欠けた情報の補完が高い。見えない選択肢を素早く特定する。"
+        },
+        {
+          key: "ice",
+          title: "ICE GATEKEEPER",
+          color: colors.neonWalls[3],
+          success: stats.iceGateSuccesses,
+          attempts: stats.iceGateAttempts,
+          detail: "抑制制御が高い。押すべき信号と止める信号を切り分ける。"
         }
       ].map(entry => ({
         ...entry,
@@ -3837,7 +4067,19 @@
         return;
       }
       if (state.gameOver) {
-        if (event.code === "Enter") reborn();
+        if (state.resultPage === 0 && (event.code === "Enter" || event.code === "ArrowRight" || event.code === "Space")) {
+          state.resultPage = 1;
+          draw();
+          return;
+        }
+        if (state.resultPage === 1 && (event.code === "ArrowLeft" || event.code === "Escape" || event.code === "KeyB")) {
+          state.resultPage = 0;
+          draw();
+          return;
+        }
+        if (state.resultPage === 1 && (event.code === "Enter" || event.code === "ArrowRight" || event.code === "Space")) {
+          reborn();
+        }
         return;
       }
       if (event.code === "ArrowUp") tryMove(relativePos(0, 1));
@@ -3864,6 +4106,32 @@
       if (event.code === "Space") {
         toggleMap();
       }
+    });
+
+    canvas.addEventListener("click", event => {
+      if (!state.gameOver || state.mode === "title") return;
+      if (state.resultPage === 0) {
+        state.resultPage = 1;
+        draw();
+        return;
+      }
+      const rect = canvas.getBoundingClientRect();
+      const point = {
+        x: (event.clientX - rect.left) * (GAME_W / rect.width),
+        y: (event.clientY - rect.top) * (GAME_H / rect.height)
+      };
+      const back = resultBackButtonRect(resultPanelRect(GAME_W, GAME_H));
+      if (
+        point.x >= back.x &&
+        point.x <= back.x + back.w &&
+        point.y >= back.y &&
+        point.y <= back.y + back.h
+      ) {
+        state.resultPage = 0;
+        draw();
+        return;
+      }
+      reborn();
     });
     combatContinueButton.addEventListener("click", finishCombatPopup);
     combatFrame.addEventListener("load", focusCombatFrame);

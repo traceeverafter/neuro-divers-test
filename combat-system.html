@@ -1069,6 +1069,109 @@
       min-width: 0;
     }
 
+    .missing-vector-grid {
+      display: grid;
+      grid-template-columns: repeat(var(--vector-size, 2), 44px);
+      gap: 8px;
+      justify-content: start;
+      align-items: center;
+      min-width: 0;
+    }
+
+    .ice-gate-signal {
+      width: 82px;
+      height: 82px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border: 2px solid var(--ice-color);
+      border-radius: 999px;
+      background: rgba(0, 0, 0, .7);
+      color: var(--ice-color);
+      font-size: 36px;
+      font-weight: 950;
+      font-variant-numeric: tabular-nums;
+      line-height: 1;
+      text-shadow:
+        0 0 14px color-mix(in srgb, var(--ice-color) 75%, transparent),
+        0 0 28px color-mix(in srgb, var(--ice-color) 42%, transparent);
+      box-shadow:
+        0 0 22px color-mix(in srgb, var(--ice-color) 32%, transparent),
+        inset 0 0 18px color-mix(in srgb, var(--ice-color) 14%, transparent);
+    }
+
+    .ice-gate-pair {
+      display: grid;
+      grid-template-columns: 82px 82px 82px;
+      grid-template-rows: 82px 82px 82px;
+      gap: 8px;
+      align-items: center;
+      justify-content: flex-start;
+      min-width: 0;
+    }
+
+    .ice-gate-center {
+      grid-column: 2;
+      grid-row: 2;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--ink);
+      font-size: 36px;
+      font-weight: 950;
+      text-shadow: 0 0 18px rgba(255, 255, 255, .34);
+    }
+
+    .ice-gate-signal.up {
+      grid-column: 2;
+      grid-row: 1;
+    }
+
+    .ice-gate-signal.left {
+      grid-column: 1;
+      grid-row: 2;
+    }
+
+    .ice-gate-signal.right {
+      grid-column: 3;
+      grid-row: 2;
+    }
+
+    .ice-gate-signal.down {
+      grid-column: 2;
+      grid-row: 3;
+    }
+
+    .ice-gate-signal.safe {
+      --ice-color: #00d7ff;
+    }
+
+    .ice-gate-signal.danger {
+      --ice-color: #ffb000;
+    }
+
+    .ice-gate-signal.off {
+      --ice-color: rgba(130, 150, 170, .2);
+      opacity: .42;
+      box-shadow: none;
+      text-shadow: none;
+    }
+
+    .ice-gate-open {
+      width: 254px;
+      height: 116px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      color: #00d7ff;
+      font-size: 24px;
+      font-weight: 950;
+      letter-spacing: .08em;
+      text-shadow:
+        0 0 14px rgba(0, 215, 255, .8),
+        0 0 28px rgba(0, 215, 255, .42);
+    }
+
     .hack-countdown {
       position: static;
       z-index: 2;
@@ -1275,7 +1378,9 @@
 
     .hack-panel.result-fail .hack-key,
     .hack-panel.result-fail .threshold-arena,
-    .hack-panel.result-fail .anomaly-grid {
+    .hack-panel.result-fail .anomaly-grid,
+    .hack-panel.result-fail .missing-vector-grid,
+    .hack-panel.result-fail .ice-gate-signal {
       opacity: .42;
     }
 
@@ -1598,7 +1703,7 @@
     const SHOOTER_CLOSE_HIT_THRESHOLD = 30;
     const SHOOTER_CLOSE_CHANCE = 0.5;
     const HACK_KEYS = ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"];
-    const HACK_MODES = ["code", "threshold", "anomaly"];
+    const HACK_MODES = ["code", "threshold", "anomaly", "missing", "ice"];
     const ANOMALY_COLORS = ["#00e5ff", "#ff3df2", "#7cff4f", "#ffb347", "#8f7cff", "#ff4d6d"];
     const HACK_DIFFICULTY = {
       1: { length: 3, time: 3000 },
@@ -1979,7 +2084,11 @@
         phaseLockAttempts: 0,
         phaseLockSuccesses: 0,
         anomalyScanAttempts: 0,
-        anomalyScanSuccesses: 0
+        anomalyScanSuccesses: 0,
+        missingVectorAttempts: 0,
+        missingVectorSuccesses: 0,
+        iceGateAttempts: 0,
+        iceGateSuccesses: 0
       },
       enemyThinking: false,
       enemyTimer: null,
@@ -2979,6 +3088,8 @@
         code: mode === "code" ? Array.from({ length: difficulty.length }, () => HACK_KEYS[Math.floor(Math.random() * HACK_KEYS.length)]) : [],
         threshold: mode === "threshold" ? createThresholdHack(difficulty) : null,
         anomaly: mode === "anomaly" ? createAnomalyHack(difficulty) : null,
+        missing: mode === "missing" ? createMissingVectorHack(difficulty) : null,
+        ice: mode === "ice" ? createIceGateHack(difficulty, time) : null,
         index: 0,
         misses: 0,
         maxMisses: 0,
@@ -3029,6 +3140,60 @@
       };
     }
 
+    function createMissingVectorHack(difficulty) {
+      const size = Math.max(2, Math.min(5, 1 + state.enemy.hackLevel));
+      const total = size * size;
+      const missingKey = HACK_KEYS[Math.floor(Math.random() * HACK_KEYS.length)];
+      const visibleKeys = shuffledCopy(HACK_KEYS.filter(key => key !== missingKey));
+      const pattern = [...visibleKeys];
+      while (pattern.length < total) {
+        pattern.push(visibleKeys[Math.floor(Math.random() * visibleKeys.length)]);
+      }
+      return {
+        size,
+        pattern: shuffledCopy(pattern),
+        answerKey: missingKey
+      };
+    }
+
+    function createIceGateHack(difficulty, time) {
+      const count = Math.max(4, Math.min(7, 3 + state.enemy.hackLevel));
+      const itemTime = time / count;
+      const maxBothDanger = Math.max(1, Math.floor(count / 3));
+      const bothDangerCount = Math.random() < 0.75 ? 1 + Math.floor(Math.random() * maxBothDanger) : 0;
+      const gates = [];
+      for (let index = 0; index < count - bothDangerCount; index += 1) {
+        gates.push(createIceGatePattern(false));
+      }
+      for (let index = 0; index < bothDangerCount; index += 1) {
+        gates.push(createIceGatePattern(true));
+      }
+      return {
+        count,
+        itemTime,
+        gates: shuffledCopy(gates),
+        current: 0,
+        itemStartedAt: Date.now()
+      };
+    }
+
+    function createIceGatePattern(bothDanger) {
+      const directions = ["up", "right", "down", "left"];
+      const lit = shuffledCopy(directions).slice(0, 2);
+      const gate = { up: "off", right: "off", down: "off", left: "off" };
+      if (bothDanger) {
+        lit.forEach(direction => {
+          gate[direction] = "danger";
+        });
+        return gate;
+      }
+      const safeDirection = lit[Math.floor(Math.random() * lit.length)];
+      lit.forEach(direction => {
+        gate[direction] = direction === safeDirection ? "safe" : "danger";
+      });
+      return gate;
+    }
+
     function shuffledCopy(list) {
       const copy = [...list];
       for (let index = copy.length - 1; index > 0; index -= 1) {
@@ -3042,7 +3207,9 @@
       return {
         code: "CODE TRACE",
         threshold: "PHASE LOCK",
-        anomaly: "ANOMALY SCAN"
+        anomaly: "ANOMALY SCAN",
+        missing: "MISSING VECTOR",
+        ice: "ICE GATE"
       }[mode] || "JAMMING";
     }
 
@@ -3083,7 +3250,9 @@
       const statMap = {
         code: ["codeTraceAttempts", "codeTraceSuccesses"],
         threshold: ["phaseLockAttempts", "phaseLockSuccesses"],
-        anomaly: ["anomalyScanAttempts", "anomalyScanSuccesses"]
+        anomaly: ["anomalyScanAttempts", "anomalyScanSuccesses"],
+        missing: ["missingVectorAttempts", "missingVectorSuccesses"],
+        ice: ["iceGateAttempts", "iceGateSuccesses"]
       };
       const keys = statMap[mode];
       if (!keys) return;
@@ -3104,6 +3273,17 @@
         if (!HACK_KEYS.includes(code)) return false;
         const success = code === state.hack.anomaly.answerKey;
         finishHack(success, success ? "" : "FALSE TARGET");
+        return true;
+      }
+      if (state.hack.mode === "missing") {
+        if (!HACK_KEYS.includes(code)) return false;
+        const success = code === state.hack.missing.answerKey;
+        finishHack(success, success ? "" : "MISSING VECTOR ERROR");
+        return true;
+      }
+      if (state.hack.mode === "ice") {
+        if (!HACK_KEYS.includes(code)) return false;
+        handleIceGateInput(iceGateDirectionFromCode(code));
         return true;
       }
       if (!HACK_KEYS.includes(code)) return false;
@@ -3168,6 +3348,8 @@
     function hackBodyHtml(hasError = false) {
       if (state.hack.mode === "threshold") return thresholdHackHtml();
       if (state.hack.mode === "anomaly") return anomalyHackHtml();
+      if (state.hack.mode === "missing") return missingVectorHackHtml();
+      if (state.hack.mode === "ice") return iceGateHackHtml();
       const codeHtml = state.hack.code.map((code, index) => {
         const className = [
           index < state.hack.index ? "done" : "",
@@ -3209,11 +3391,82 @@
       return `<span class="anomaly-grid" style="--anomaly-size:${state.hack.anomaly.size}">${pattern}</span>`;
     }
 
+    function missingVectorHackHtml() {
+      const pattern = state.hack.missing.pattern
+        .map(code => {
+          const className = [
+            state.hack.resolving && state.hack.success ? "result-glow" : "",
+            state.hack.resolving && !state.hack.success ? "result-dim" : ""
+          ].filter(Boolean).join(" ");
+          return `<span class="hack-key ${className}">${arrowSymbol(code)}</span>`;
+        })
+        .join("");
+      return `<span class="missing-vector-grid" style="--vector-size:${state.hack.missing.size}">${pattern}</span>`;
+    }
+
+    function advanceIceGate() {
+      const ice = state.hack?.ice;
+      if (!ice || state.hack.resolving) return;
+      ice.current += 1;
+      ice.itemStartedAt = Date.now();
+      if (ice.current >= ice.count) {
+        finishHack(true);
+      } else {
+        renderHackPanel();
+      }
+    }
+
+    function handleIceGateInput(side) {
+      const ice = state.hack?.ice;
+      if (!ice || state.hack.resolving) return;
+      const gate = ice.gates[ice.current];
+      if (gate?.[side] === "safe") {
+        advanceIceGate();
+      } else {
+        finishHack(false, "DANGER TOUCH");
+      }
+    }
+
+    function updateIceGateProgress() {
+      const ice = state.hack?.ice;
+      if (!ice || state.hack.resolving) return;
+      const gate = ice.gates[ice.current];
+      if (iceGateHasSafe(gate)) return;
+      const elapsed = Date.now() - ice.itemStartedAt;
+      if (elapsed < ice.itemTime) return;
+      advanceIceGate();
+    }
+
+    function iceGateHasSafe(gate) {
+      return ["up", "right", "down", "left"].some(direction => gate?.[direction] === "safe");
+    }
+
+    function iceGateHackHtml() {
+      updateIceGateProgress();
+      const ice = state.hack.ice;
+      if (state.hack.resolving && state.hack.success) {
+        return `<span class="ice-gate-open">OPEN</span>`;
+      }
+      const gate = ice.gates[Math.min(ice.current, ice.gates.length - 1)] || { up: "off", right: "danger", down: "off", left: "danger" };
+      const remainingTasks = Math.max(0, ice.count - ice.current);
+      return `
+        <span class="ice-gate-pair">
+          <span class="ice-gate-signal up ${gate.up}"><span>↑</span></span>
+          <span class="ice-gate-signal left ${gate.left}"><span>←</span></span>
+          <span class="ice-gate-center">${remainingTasks}</span>
+          <span class="ice-gate-signal right ${gate.right}"><span>→</span></span>
+          <span class="ice-gate-signal down ${gate.down}"><span>↓</span></span>
+        </span>
+      `;
+    }
+
     function hackStatusText() {
       const base = `ATTEMPT ${state.hack.attempt} / LIMIT ${(state.hack.time / 1000).toFixed(2)} / ERROR = FAIL`;
       if (state.hack.resolving) return state.hack.success ? "BREACHED" : "DENIED";
       if (state.hack.mode === "threshold") return `${base} / → WHEN PHASE LOCKS`;
       if (state.hack.mode === "anomaly") return `${base} / FIND THE ODD ARROW`;
+      if (state.hack.mode === "missing") return `${base} / INPUT THE MISSING VECTOR`;
+      if (state.hack.mode === "ice") return `${base} / INPUT CYAN DIRECTION / HOLD IF BOTH LIT AMBER`;
       return base;
     }
 
@@ -3272,7 +3525,11 @@
         phaseLockAttempts: 0,
         phaseLockSuccesses: 0,
         anomalyScanAttempts: 0,
-        anomalyScanSuccesses: 0
+        anomalyScanSuccesses: 0,
+        missingVectorAttempts: 0,
+        missingVectorSuccesses: 0,
+        iceGateAttempts: 0,
+        iceGateSuccesses: 0
       };
       state.log = [
         `${activeUnit().name}が先攻です。`,
@@ -3740,6 +3997,32 @@
       if (event.code === "ArrowDown") moveCommandSelection(1);
       if (event.code === "ArrowRight") runSelectedCommand();
     });
+
+    window.addEventListener("pointerup", event => {
+      if (state.hack?.mode !== "ice" || state.hack.resolving) return;
+      if (event.target.closest("button, input, select, textarea, a")) return;
+      event.preventDefault();
+      getAudioContext();
+      handleIceGateInput(iceGateSideFromPoint(event.clientX, event.clientY));
+    }, { passive: false });
+
+    function iceGateDirectionFromCode(code) {
+      return {
+        ArrowUp: "up",
+        ArrowRight: "right",
+        ArrowDown: "down",
+        ArrowLeft: "left"
+      }[code] || "";
+    }
+
+    function iceGateSideFromPoint(clientX, clientY = window.innerHeight / 2) {
+      const pair = elements.hackCode.querySelector(".ice-gate-pair");
+      const rect = (pair || elements.hackCode).getBoundingClientRect();
+      const dx = clientX - (rect.left + rect.width / 2);
+      const dy = clientY - (rect.top + rect.height / 2);
+      if (Math.abs(dx) > Math.abs(dy)) return dx > 0 ? "right" : "left";
+      return dy > 0 ? "down" : "up";
+    }
 
     elements.backButton.addEventListener("click", () => {
       rememberCommand("back");
