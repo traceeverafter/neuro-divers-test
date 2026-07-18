@@ -806,6 +806,35 @@
       background: rgba(92, 62, 14, .35);
     }
 
+    .dojo-skill-readout {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      right: 132px;
+      z-index: 2;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+      min-height: 25px;
+      pointer-events: none;
+    }
+
+    .dojo-skill-chip {
+      padding: 5px 8px;
+      border: 1px solid rgba(0, 229, 255, .44);
+      border-radius: 999px;
+      color: #edf8ff;
+      background: rgba(24, 34, 53, .86);
+      font-size: 10px;
+      font-weight: 900;
+      line-height: 1;
+      white-space: nowrap;
+      box-shadow:
+        0 0 12px rgba(0, 229, 255, .12),
+        inset 0 0 0 1px rgba(255, 255, 255, .08);
+      text-shadow: 0 0 10px rgba(0, 229, 255, .22);
+    }
+
     .dojo-potion-dot {
       width: 7px;
       height: 15px;
@@ -1135,6 +1164,7 @@
       </section>
       <section class="character-card">
         <div class="character-art" aria-hidden="true">
+          <div class="dojo-skill-readout" id="dojoSkillBadges"></div>
           <div class="dojo-potion-bar" id="dojoPotionBar"></div>
           <div class="dojo-profile" id="dojoProfile"></div>
         </div>
@@ -1231,6 +1261,7 @@
     const saveSlotList = document.querySelector("#saveSlotList");
     const dojoProfile = document.querySelector("#dojoProfile");
     const dojoPotionBar = document.querySelector("#dojoPotionBar");
+    const dojoSkillBadges = document.querySelector("#dojoSkillBadges");
     const titleStatList = document.querySelector("#titleStatList");
     const pauseStatList = document.querySelector("#pauseStatList");
     const pauseResourceList = document.querySelector("#pauseResourceList");
@@ -2219,19 +2250,32 @@
         const noise = context.createBufferSource();
         const filter = context.createBiquadFilter();
         const gain = context.createGain();
+        const body = context.createOscillator();
+        const bodyGain = context.createGain();
 
-        noise.buffer = createNoiseBuffer(context, 0.08);
-        filter.type = "lowpass";
-        filter.frequency.setValueAtTime(210, now);
-        filter.Q.setValueAtTime(0.7, now);
+        noise.buffer = createNoiseBuffer(context, 0.09);
+        filter.type = "bandpass";
+        filter.frequency.setValueAtTime(1700, now);
+        filter.frequency.exponentialRampToValueAtTime(950, now + 0.065);
+        filter.Q.setValueAtTime(1.6, now);
 
         gain.gain.setValueAtTime(0.0001, now);
-        gain.gain.exponentialRampToValueAtTime(0.22, now + 0.012);
-        gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.08);
+        gain.gain.exponentialRampToValueAtTime(0.18, now + 0.006);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.085);
+
+        body.type = "triangle";
+        body.frequency.setValueAtTime(185, now);
+        body.frequency.exponentialRampToValueAtTime(120, now + 0.08);
+        bodyGain.gain.setValueAtTime(0.0001, now);
+        bodyGain.gain.exponentialRampToValueAtTime(0.08, now + 0.004);
+        bodyGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.075);
 
         noise.connect(filter).connect(gain).connect(context.destination);
+        body.connect(bodyGain).connect(context.destination);
         noise.start(now);
         noise.stop(now + 0.09);
+        body.start(now);
+        body.stop(now + 0.085);
       });
     }
 
@@ -2246,22 +2290,22 @@
       const thud = context.createOscillator();
       const thudGain = context.createGain();
 
-      noise.buffer = createNoiseBuffer(context, 0.12);
+      noise.buffer = createNoiseBuffer(context, 0.08);
       filter.type = "lowpass";
-      filter.frequency.setValueAtTime(120, now);
-      filter.frequency.exponentialRampToValueAtTime(58, now + 0.11);
-      filter.Q.setValueAtTime(1.1, now);
+      filter.frequency.setValueAtTime(92, now);
+      filter.frequency.exponentialRampToValueAtTime(42, now + 0.12);
+      filter.Q.setValueAtTime(1.4, now);
 
       noiseGain.gain.setValueAtTime(0.0001, now);
-      noiseGain.gain.exponentialRampToValueAtTime(0.34, now + 0.008);
-      noiseGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.12);
+      noiseGain.gain.exponentialRampToValueAtTime(0.2, now + 0.004);
+      noiseGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.1);
 
       thud.type = "sine";
-      thud.frequency.setValueAtTime(92, now);
-      thud.frequency.exponentialRampToValueAtTime(42, now + 0.13);
+      thud.frequency.setValueAtTime(118, now);
+      thud.frequency.exponentialRampToValueAtTime(38, now + 0.18);
       thudGain.gain.setValueAtTime(0.0001, now);
-      thudGain.gain.exponentialRampToValueAtTime(0.28, now + 0.01);
-      thudGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.15);
+      thudGain.gain.exponentialRampToValueAtTime(0.36, now + 0.006);
+      thudGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.2);
 
       noise.connect(filter).connect(noiseGain).connect(context.destination);
       thud.connect(thudGain).connect(context.destination);
@@ -2279,14 +2323,15 @@
       [0, 0.1, 0.2].forEach((offset, index) => {
         const oscillator = context.createOscillator();
         const gain = context.createGain();
-        oscillator.type = "square";
-        oscillator.frequency.setValueAtTime(220 + index * 95, now + offset);
+        oscillator.type = "triangle";
+        oscillator.frequency.setValueAtTime(360 - index * 74, now + offset);
+        oscillator.frequency.exponentialRampToValueAtTime(130 - index * 18, now + offset + 0.12);
         gain.gain.setValueAtTime(0.0001, now + offset);
-        gain.gain.exponentialRampToValueAtTime(0.18, now + offset + 0.015);
-        gain.gain.exponentialRampToValueAtTime(0.0001, now + offset + 0.09);
+        gain.gain.exponentialRampToValueAtTime(0.18, now + offset + 0.006);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + offset + 0.13);
         oscillator.connect(gain).connect(context.destination);
         oscillator.start(now + offset);
-        oscillator.stop(now + offset + 0.1);
+        oscillator.stop(now + offset + 0.14);
       });
     }
 
@@ -2716,6 +2761,7 @@
       pauseStatList.innerHTML = dojoControlsHtml();
       dojoProfile.innerHTML = dojoProfileHtml();
       dojoPotionBar.innerHTML = dojoPotionBarHtml();
+      dojoSkillBadges.innerHTML = dojoSkillBadgesHtml();
       pauseResourceList.innerHTML = dojoStatusHtml();
     }
 
@@ -2755,6 +2801,18 @@
       return Array.from({ length: MAX_POTIONS }, (_, index) => (
         `<span class="dojo-potion-dot ${index < state.potions ? "active" : ""}"></span>`
       )).join("");
+    }
+
+    function dojoSkillBadgesHtml() {
+      return [
+        ["iaido", "居合"],
+        ["mindEye", "心眼"],
+        ["dash", "疾駆"],
+        ["immovable", "不動"],
+        ["mizukagami", "水鏡"]
+      ].filter(([key]) => skillLevel(key) >= 1)
+        .map(([key, label]) => `<span class="dojo-skill-chip">${label}${skillLevel(key)}</span>`)
+        .join("");
     }
 
     function dojoStatusHtml() {

@@ -1229,6 +1229,40 @@
       color: #8ce0b4;
       border-color: rgba(140, 224, 180, .7);
       background: rgba(24, 132, 86, .28);
+      box-shadow:
+        0 0 12px rgba(140, 224, 180, .3),
+        inset 0 0 10px rgba(140, 224, 180, .12);
+    }
+
+    .hack-key.active {
+      color: #b8f0ce;
+      border-color: rgba(140, 224, 180, .72);
+      background: rgba(24, 132, 86, .24);
+      box-shadow:
+        0 0 14px rgba(140, 224, 180, .38),
+        inset 0 0 10px rgba(140, 224, 180, .12);
+      animation: codeTracePulse 1.25s ease-in-out infinite;
+    }
+
+    @keyframes codeTracePulse {
+      0%,
+      100% {
+        color: rgba(184, 240, 206, .68);
+        border-color: rgba(140, 224, 180, .38);
+        background: rgba(24, 132, 86, .12);
+        box-shadow:
+          0 0 4px rgba(140, 224, 180, .12),
+          inset 0 0 6px rgba(140, 224, 180, .06);
+      }
+
+      50% {
+        color: #ffffff;
+        border-color: rgba(140, 224, 180, .92);
+        background: rgba(24, 132, 86, .36);
+        box-shadow:
+          0 0 18px rgba(140, 224, 180, .62),
+          inset 0 0 14px rgba(255, 255, 255, .18);
+      }
     }
 
     .hack-key.error {
@@ -2185,7 +2219,13 @@
       return buffer;
     }
 
-    function playSlashSound() {
+    function weaponSoundLevel(kind) {
+      const unit = activeUnit();
+      const attack = kind === "melee" ? unit?.attacks?.melee : unit?.attacks?.shoot;
+      return Math.max(1, Math.min(7, Math.round((attack?.damage || 2) - 1)));
+    }
+
+    function playSlashSound(level = 1) {
       const context = getAudioContext();
       if (!context) return;
 
@@ -2193,51 +2233,69 @@
       const noise = context.createBufferSource();
       const filter = context.createBiquadFilter();
       const gain = context.createGain();
+      const accent = context.createOscillator();
+      const accentGain = context.createGain();
 
-      noise.buffer = createNoiseBuffer(context, 0.16);
-      filter.type = "bandpass";
-      filter.frequency.setValueAtTime(1800, now);
-      filter.frequency.exponentialRampToValueAtTime(420, now + 0.14);
-      filter.Q.setValueAtTime(1.4, now);
+      noise.buffer = createNoiseBuffer(context, 0.055 + level * 0.006);
+      filter.type = "highpass";
+      filter.frequency.setValueAtTime(5200 + level * 420, now);
+      filter.Q.setValueAtTime(0.95 + level * 0.08, now);
 
       gain.gain.setValueAtTime(0.0001, now);
-      gain.gain.exponentialRampToValueAtTime(0.34, now + 0.015);
-      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.16);
+      gain.gain.exponentialRampToValueAtTime(0.16 + level * 0.018, now + 0.003);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.055 + level * 0.008);
+
+      accent.type = "square";
+      accent.frequency.setValueAtTime(7600 + level * 520, now);
+      accentGain.gain.setValueAtTime(0.0001, now);
+      accentGain.gain.exponentialRampToValueAtTime(0.035 + level * 0.006, now + 0.002);
+      accentGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.035);
 
       noise.connect(filter).connect(gain).connect(context.destination);
+      accent.connect(accentGain).connect(context.destination);
       noise.start(now);
-      noise.stop(now + 0.17);
+      noise.stop(now + 0.12);
+      accent.start(now);
+      accent.stop(now + 0.05);
     }
 
-    function playBeamSound() {
+    function playBeamSound(level = 1) {
       const context = getAudioContext();
       if (!context) return;
 
       const now = context.currentTime;
-      const oscillator = context.createOscillator();
-      const modulator = context.createOscillator();
-      const modGain = context.createGain();
+      const shimmer = context.createBufferSource();
+      const highpass = context.createBiquadFilter();
+      const sparkle = context.createBiquadFilter();
       const gain = context.createGain();
+      const ping = context.createOscillator();
+      const pingGain = context.createGain();
 
-      oscillator.type = "sawtooth";
-      oscillator.frequency.setValueAtTime(1500, now);
-      oscillator.frequency.exponentialRampToValueAtTime(520, now + 0.12);
-      oscillator.frequency.exponentialRampToValueAtTime(180, now + 0.28);
-
-      modulator.type = "square";
-      modulator.frequency.setValueAtTime(45, now);
-      modGain.gain.setValueAtTime(55, now);
-      modulator.connect(modGain).connect(oscillator.frequency);
+      shimmer.buffer = createNoiseBuffer(context, 0.34 + level * 0.025);
+      highpass.type = "highpass";
+      highpass.frequency.setValueAtTime(3900 + level * 280, now);
+      highpass.Q.setValueAtTime(0.8, now);
+      sparkle.type = "bandpass";
+      sparkle.frequency.setValueAtTime(7200 + level * 420, now);
+      sparkle.Q.setValueAtTime(0.72 + level * 0.05, now);
 
       gain.gain.setValueAtTime(0.0001, now);
-      gain.gain.exponentialRampToValueAtTime(0.22, now + 0.025);
-      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.3);
+      gain.gain.exponentialRampToValueAtTime(0.2 + level * 0.018, now + 0.004);
+      gain.gain.exponentialRampToValueAtTime(0.07 + level * 0.006, now + 0.08);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.34 + level * 0.025);
 
-      oscillator.connect(gain).connect(context.destination);
-      oscillator.start(now);
-      modulator.start(now);
-      oscillator.stop(now + 0.32);
-      modulator.stop(now + 0.32);
+      ping.type = "square";
+      ping.frequency.setValueAtTime(4300 + level * 260, now);
+      pingGain.gain.setValueAtTime(0.0001, now);
+      pingGain.gain.exponentialRampToValueAtTime(0.035 + level * 0.004, now + 0.002);
+      pingGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.05);
+
+      shimmer.connect(highpass).connect(sparkle).connect(gain).connect(context.destination);
+      ping.connect(pingGain).connect(context.destination);
+      shimmer.start(now);
+      shimmer.stop(now + 0.42);
+      ping.start(now);
+      ping.stop(now + 0.055);
     }
 
     function playFootstepSound() {
@@ -2250,14 +2308,15 @@
         const filter = context.createBiquadFilter();
         const gain = context.createGain();
 
-        noise.buffer = createNoiseBuffer(context, 0.08);
-        filter.type = "lowpass";
-        filter.frequency.setValueAtTime(210, now);
-        filter.Q.setValueAtTime(0.7, now);
+        noise.buffer = createNoiseBuffer(context, 0.09);
+        filter.type = "bandpass";
+        filter.frequency.setValueAtTime(1700, now);
+        filter.frequency.exponentialRampToValueAtTime(950, now + 0.065);
+        filter.Q.setValueAtTime(1.6, now);
 
         gain.gain.setValueAtTime(0.0001, now);
-        gain.gain.exponentialRampToValueAtTime(0.22, now + 0.012);
-        gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.08);
+        gain.gain.exponentialRampToValueAtTime(0.18, now + 0.006);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.085);
 
         noise.connect(filter).connect(gain).connect(context.destination);
         noise.start(now);
@@ -2267,9 +2326,9 @@
 
     function playAttackSound(kind) {
       if (kind === "melee") {
-        playSlashSound();
+        playSlashSound(weaponSoundLevel(kind));
       } else if (kind === "shoot") {
-        playBeamSound();
+        playBeamSound(weaponSoundLevel(kind));
       }
     }
 
@@ -3353,6 +3412,7 @@
       const codeHtml = state.hack.code.map((code, index) => {
         const className = [
           index < state.hack.index ? "done" : "",
+          !state.hack.resolving && index === state.hack.index ? "active" : "",
           hasError && index === state.hack.index ? "error" : "",
           state.hack.resolving && state.hack.success ? "result-glow" : "",
           state.hack.resolving && !state.hack.success ? "result-dim" : ""
