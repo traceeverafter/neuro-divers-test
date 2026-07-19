@@ -1078,6 +1078,10 @@
       min-width: 0;
     }
 
+    .missing-vector-grid .hack-key {
+      transition: opacity .12s linear, transform .12s linear, text-shadow .12s linear;
+    }
+
     .ice-gate-signal {
       width: 82px;
       height: 82px;
@@ -1398,6 +1402,73 @@
     .threshold-arena.locked .phase-lock-line {
       background: rgba(140, 224, 180, .92);
       box-shadow: 0 0 22px rgba(140, 224, 180, .72);
+    }
+
+    .drift-site,
+    .drift-point {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      border-radius: 50%;
+      pointer-events: none;
+    }
+
+    .drift-site {
+      width: var(--drift-site-size, 56px);
+      height: var(--drift-site-size, 56px);
+      transform: translate(-50%, -50%);
+      border: 1px solid rgba(var(--stage-neon-rgb), .88);
+      background:
+        radial-gradient(circle at 50% 50%, rgba(255, 255, 255, .16) 0 2px, transparent 3px),
+        repeating-conic-gradient(from 45deg, rgba(var(--stage-neon-rgb), .72) 0deg 12deg, transparent 12deg 30deg),
+        radial-gradient(circle, rgba(var(--stage-neon-rgb), .16), transparent 62%);
+      box-shadow:
+        0 0 18px rgba(var(--stage-neon-rgb), .28),
+        inset 0 0 18px rgba(var(--stage-neon-rgb), .2);
+    }
+
+    .drift-site::before,
+    .drift-site::after {
+      content: "";
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      background: rgba(255, 255, 255, .5);
+      transform: translate(-50%, -50%);
+    }
+
+    .drift-site::before {
+      width: calc(var(--drift-site-size, 56px) + 34px);
+      height: 1px;
+    }
+
+    .drift-site::after {
+      width: 1px;
+      height: calc(var(--drift-site-size, 56px) + 34px);
+    }
+
+    .drift-point {
+      width: 14px;
+      height: 14px;
+      transform: translate(calc(-50% + var(--drift-x, 0px)), calc(-50% + var(--drift-y, 0px)));
+      background: rgba(255, 220, 138, .96);
+      box-shadow:
+        0 0 12px rgba(255, 220, 138, .52),
+        0 0 24px rgba(var(--stage-neon-rgb), .32);
+    }
+
+    .threshold-arena.locked .drift-site {
+      border-color: rgba(140, 224, 180, .95);
+      box-shadow:
+        0 0 22px rgba(140, 224, 180, .42),
+        inset 0 0 18px rgba(140, 224, 180, .2);
+    }
+
+    .threshold-arena.locked .drift-point {
+      background: rgba(140, 224, 180, .96);
+      box-shadow:
+        0 0 18px rgba(140, 224, 180, .68),
+        0 0 28px rgba(140, 224, 180, .36);
     }
 
     .hack-panel.result-success {
@@ -2104,6 +2175,7 @@
       gameOver: false,
       battleReported: false,
       defeatedSide: "",
+      finalBlow: null,
       battleStats: {
         playerAttacks: 0,
         playerHits: 0,
@@ -2235,28 +2307,46 @@
       const gain = context.createGain();
       const accent = context.createOscillator();
       const accentGain = context.createGain();
+      const sweep = context.createOscillator();
+      const sweepGain = context.createGain();
+      const sweepFilter = context.createBiquadFilter();
 
-      noise.buffer = createNoiseBuffer(context, 0.055 + level * 0.006);
+      noise.buffer = createNoiseBuffer(context, 0.052 + level * 0.005);
       filter.type = "highpass";
-      filter.frequency.setValueAtTime(5200 + level * 420, now);
-      filter.Q.setValueAtTime(0.95 + level * 0.08, now);
+      filter.frequency.setValueAtTime(5600 + level * 410, now);
+      filter.frequency.exponentialRampToValueAtTime(3900 + level * 260, now + 0.04);
+      filter.Q.setValueAtTime(0.9 + level * 0.06, now);
 
       gain.gain.setValueAtTime(0.0001, now);
-      gain.gain.exponentialRampToValueAtTime(0.16 + level * 0.018, now + 0.003);
-      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.055 + level * 0.008);
+      gain.gain.exponentialRampToValueAtTime(0.19 + level * 0.018, now + 0.002);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.06 + level * 0.006);
 
       accent.type = "square";
-      accent.frequency.setValueAtTime(7600 + level * 520, now);
+      accent.frequency.setValueAtTime(8300 + level * 460, now);
       accentGain.gain.setValueAtTime(0.0001, now);
-      accentGain.gain.exponentialRampToValueAtTime(0.035 + level * 0.006, now + 0.002);
-      accentGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.035);
+      accentGain.gain.exponentialRampToValueAtTime(0.032 + level * 0.004, now + 0.001);
+      accentGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.024);
+
+      sweep.type = "sawtooth";
+      sweep.frequency.setValueAtTime(2600 + level * 170, now);
+      sweep.frequency.exponentialRampToValueAtTime(820 + level * 70, now + 0.09);
+      sweepFilter.type = "bandpass";
+      sweepFilter.frequency.setValueAtTime(3600 + level * 240, now);
+      sweepFilter.frequency.exponentialRampToValueAtTime(1600 + level * 120, now + 0.085);
+      sweepFilter.Q.setValueAtTime(4.2, now);
+      sweepGain.gain.setValueAtTime(0.0001, now);
+      sweepGain.gain.exponentialRampToValueAtTime(0.055 + level * 0.005, now + 0.006);
+      sweepGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.105);
 
       noise.connect(filter).connect(gain).connect(context.destination);
       accent.connect(accentGain).connect(context.destination);
+      sweep.connect(sweepFilter).connect(sweepGain).connect(context.destination);
       noise.start(now);
-      noise.stop(now + 0.12);
+      noise.stop(now + 0.09);
       accent.start(now);
-      accent.stop(now + 0.05);
+      accent.stop(now + 0.03);
+      sweep.start(now);
+      sweep.stop(now + 0.11);
     }
 
     function playBeamSound(level = 1) {
@@ -2270,6 +2360,11 @@
       const gain = context.createGain();
       const ping = context.createOscillator();
       const pingGain = context.createGain();
+      const beam = context.createOscillator();
+      const beamFilter = context.createBiquadFilter();
+      const beamGain = context.createGain();
+      const thump = context.createOscillator();
+      const thumpGain = context.createGain();
 
       shimmer.buffer = createNoiseBuffer(context, 0.34 + level * 0.025);
       highpass.type = "highpass";
@@ -2290,12 +2385,37 @@
       pingGain.gain.exponentialRampToValueAtTime(0.035 + level * 0.004, now + 0.002);
       pingGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.05);
 
+      beam.type = "sawtooth";
+      beam.frequency.setValueAtTime(1900 + level * 130, now);
+      beam.frequency.exponentialRampToValueAtTime(420 + level * 34, now + 0.18);
+      beamFilter.type = "bandpass";
+      beamFilter.frequency.setValueAtTime(1450 + level * 90, now);
+      beamFilter.frequency.exponentialRampToValueAtTime(740 + level * 45, now + 0.16);
+      beamFilter.Q.setValueAtTime(3.2, now);
+      beamGain.gain.setValueAtTime(0.0001, now);
+      beamGain.gain.exponentialRampToValueAtTime(0.075 + level * 0.008, now + 0.006);
+      beamGain.gain.exponentialRampToValueAtTime(0.02 + level * 0.003, now + 0.09);
+      beamGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.2);
+
+      thump.type = "square";
+      thump.frequency.setValueAtTime(150 + level * 12, now);
+      thump.frequency.exponentialRampToValueAtTime(78 + level * 5, now + 0.055);
+      thumpGain.gain.setValueAtTime(0.0001, now);
+      thumpGain.gain.exponentialRampToValueAtTime(0.055 + level * 0.006, now + 0.003);
+      thumpGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.07);
+
       shimmer.connect(highpass).connect(sparkle).connect(gain).connect(context.destination);
       ping.connect(pingGain).connect(context.destination);
+      beam.connect(beamFilter).connect(beamGain).connect(context.destination);
+      thump.connect(thumpGain).connect(context.destination);
       shimmer.start(now);
       shimmer.stop(now + 0.42);
       ping.start(now);
       ping.stop(now + 0.055);
+      beam.start(now);
+      beam.stop(now + 0.22);
+      thump.start(now);
+      thump.stop(now + 0.075);
     }
 
     function playFootstepSound() {
@@ -2321,6 +2441,48 @@
         noise.connect(filter).connect(gain).connect(context.destination);
         noise.start(now);
         noise.stop(now + 0.09);
+      });
+    }
+
+    function playJammingResolutionSound(success) {
+      const context = getAudioContext();
+      if (!context) return;
+
+      const now = context.currentTime;
+      const notes = success ? [440, 587.33, 783.99] : [783.99, 587.33, 440];
+      const master = context.createGain();
+      master.gain.setValueAtTime(0.0001, now);
+      master.gain.exponentialRampToValueAtTime(success ? 0.72 : 0.56, now + 0.004);
+      master.gain.setValueAtTime(success ? 0.72 : 0.56, now + 0.28);
+      master.gain.exponentialRampToValueAtTime(0.0001, now + 0.38);
+      master.connect(context.destination);
+
+      notes.forEach((frequency, index) => {
+        const offset = index * 0.08;
+        const isG = Math.abs(frequency - 783.99) < 1;
+        const noteBoost = isG ? 1.55 : 1;
+        const oscillator = context.createOscillator();
+        const click = context.createBufferSource();
+        const clickFilter = context.createBiquadFilter();
+        const gain = context.createGain();
+        const clickGain = context.createGain();
+        oscillator.type = "square";
+        oscillator.frequency.setValueAtTime(frequency, now + offset);
+        gain.gain.setValueAtTime(0.0001, now + offset);
+        gain.gain.exponentialRampToValueAtTime((0.16 + index * 0.018) * noteBoost, now + offset + 0.003);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + offset + 0.062);
+        click.buffer = createNoiseBuffer(context, 0.025);
+        clickFilter.type = "highpass";
+        clickFilter.frequency.setValueAtTime(6400 + index * 650, now + offset);
+        clickGain.gain.setValueAtTime(0.0001, now + offset);
+        clickGain.gain.exponentialRampToValueAtTime(0.045 * noteBoost, now + offset + 0.002);
+        clickGain.gain.exponentialRampToValueAtTime(0.0001, now + offset + 0.026);
+        oscillator.connect(gain).connect(master);
+        click.connect(clickFilter).connect(clickGain).connect(master);
+        oscillator.start(now + offset);
+        click.start(now + offset);
+        oscillator.stop(now + offset + 0.072);
+        click.stop(now + offset + 0.028);
       });
     }
 
@@ -2721,6 +2883,18 @@
       const sourceText = source ? `${source}: ` : "";
       if (isHit) {
         defender.hp = Math.max(0, defender.hp - damage);
+        if (defender.hp <= 0) {
+          state.finalBlow = {
+            attacker: attacker.name,
+            attackerSide: attacker.side,
+            defender: defender.name,
+            defenderSide: defender.side,
+            attack: attackData.label,
+            kind,
+            source,
+            damage
+          };
+        }
         const guardText = reduction.reduced > 0 ? `（TOU軽減 ${reduction.roll}/${reduction.chance}、-${reduction.reduced}）` : "";
         addLog(`${sourceText}${attacker.name}の${attackData.label}が命中。${defender.name}に${damage}ダメージ${guardText}。判定${roll}/${hitRate}（基本${attackBaseHitRate}% - 回避${evasionFor(defender)}%）`);
         if (kind === "melee" && allowKnockback && defender.hp > 0) {
@@ -2796,6 +2970,7 @@
             shoot: state.enemy.attacks.shoot.damage
           },
           enemyHackLevel: state.enemy.hackLevel,
+          finalBlow: state.finalBlow ? { ...state.finalBlow } : null,
           battleStats: { ...state.battleStats }
         }, "*");
       }, 980);
@@ -3164,12 +3339,14 @@
     }
 
     function createThresholdHack(difficulty) {
+      const variant = Math.random() < 0.5 ? "phase" : "drift";
       const baseSpeed = 1.5 + state.enemy.hackLevel * 0.36;
       const slowSpeed = baseSpeed * 0.42;
       const fastSpeed = baseSpeed * 1.5;
       const innerIsFast = Math.random() < 0.5;
       const gateRing = Math.random() < 0.5 ? "outer" : "inner";
       return {
+        variant,
         passAt: 780 + Math.random() * 980,
         outerSpeed: innerIsFast ? slowSpeed : fastSpeed,
         innerSpeed: innerIsFast ? fastSpeed : slowSpeed,
@@ -3177,7 +3354,15 @@
         innerDirection: innerIsFast ? -1 : 1,
         gateRing,
         wideWidth: 36,
-        narrowWidth: 8
+        narrowWidth: 8,
+        driftSpeed: 1.15 + state.enemy.hackLevel * 0.22,
+        driftPhaseX: Math.random() * Math.PI * 2,
+        driftPhaseY: Math.random() * Math.PI * 2,
+        driftRadiusX: 76,
+        driftRadiusY: 62,
+        siteStartRadius: 32,
+        siteEndRadius: 18,
+        pointRadius: 7
       };
     }
 
@@ -3283,6 +3468,7 @@
       state.hack.resolvedAt = Date.now();
       elements.hackPanel.classList.toggle("result-success", success);
       elements.hackPanel.classList.toggle("result-fail", !success);
+      playJammingResolutionSound(success);
       renderHackPanel();
 
       window.setTimeout(() => completeHackResolution(), 1000);
@@ -3322,6 +3508,7 @@
     function handleHackKey(code) {
       if (!state.hack) return false;
       if (state.hack.resolving) return true;
+      getAudioContext();
       if (state.hack.mode === "threshold") {
         if (!["ArrowRight", "Space", "Enter"].includes(code)) return false;
         const success = thresholdHackOverlaps();
@@ -3373,10 +3560,39 @@
 
     function thresholdHackOverlaps() {
       const threshold = state.hack.threshold;
+      if (threshold.variant === "drift") {
+        const drift = thresholdDriftState();
+        const distance = Math.hypot(drift.x, drift.y);
+        return distance <= thresholdDriftSiteRadius() - threshold.pointRadius + 1;
+      }
       const phase = thresholdPhaseState();
       const gateAngle = threshold.gateRing === "inner" ? phase.inner : phase.outer;
       const needleAngle = threshold.gateRing === "inner" ? phase.outer : phase.inner;
       return angleDistance(gateAngle, needleAngle) <= (threshold.wideWidth - threshold.narrowWidth) / 2;
+    }
+
+    function thresholdDriftState() {
+      if (!state.hack?.threshold) return { x: 0, y: 0 };
+      const elapsed = (state.hack.resolvedAt || Date.now()) - state.hack.startedAt;
+      const threshold = state.hack.threshold;
+      const t = elapsed / 1000 * threshold.driftSpeed;
+      return {
+        x: Math.sin(t * 1.7 + threshold.driftPhaseX) * threshold.driftRadiusX,
+        y: Math.sin(t * 2.3 + threshold.driftPhaseY) * threshold.driftRadiusY
+      };
+    }
+
+    function thresholdDriftProgress() {
+      if (!state.hack?.threshold) return 0;
+      const elapsed = (state.hack.resolvedAt || Date.now()) - state.hack.startedAt;
+      return Math.max(0, Math.min(1, elapsed / Math.max(1, state.hack.time)));
+    }
+
+    function thresholdDriftSiteRadius() {
+      const threshold = state.hack?.threshold;
+      if (!threshold) return 24;
+      const progress = thresholdDriftProgress();
+      return threshold.siteStartRadius - (threshold.siteStartRadius - threshold.siteEndRadius) * progress;
     }
 
     function normalizeAngle(value) {
@@ -3423,6 +3639,7 @@
     }
 
     function thresholdHackHtml() {
+      if (state.hack.threshold.variant === "drift") return thresholdDriftHackHtml();
       const phase = thresholdPhaseState();
       const locked = thresholdHackOverlaps();
       const gateRing = state.hack.threshold.gateRing;
@@ -3432,6 +3649,18 @@
           <span class="phase-ring outer ${gateRing === "outer" ? "wide" : "narrow"}" style="--phase-angle:${phase.outer}deg"></span>
           <span class="phase-ring inner ${gateRing === "inner" ? "wide" : "narrow"}" style="--phase-angle:${phase.inner}deg"></span>
           <span class="phase-core"></span>
+        </span>
+      `;
+    }
+
+    function thresholdDriftHackHtml() {
+      const drift = thresholdDriftState();
+      const siteSize = thresholdDriftSiteRadius() * 2;
+      const locked = thresholdHackOverlaps();
+      return `
+        <span class="threshold-arena ${locked ? "locked" : ""}">
+          <span class="drift-site" style="--drift-site-size:${siteSize.toFixed(1)}px"></span>
+          <span class="drift-point" style="--drift-x:${drift.x.toFixed(1)}px; --drift-y:${drift.y.toFixed(1)}px"></span>
         </span>
       `;
     }
@@ -3452,13 +3681,31 @@
     }
 
     function missingVectorHackHtml() {
+      const elapsed = (state.hack.resolvedAt || Date.now()) - state.hack.startedAt;
+      const size = state.hack.missing.size;
+      const center = (size - 1) / 2;
+      const maxOrder = Math.max(0.01, Math.hypot(center, center));
+      const revealWindow = Math.max(320, state.hack.time - 2000);
+      const spotlightSoftness = 0.85;
+      const spotlightRadius = (elapsed / revealWindow) * (maxOrder + spotlightSoftness);
+      const smoothStep = value => {
+        const t = Math.max(0, Math.min(1, value));
+        return t * t * (3 - 2 * t);
+      };
       const pattern = state.hack.missing.pattern
-        .map(code => {
+        .map((code, index) => {
+          const x = index % size;
+          const y = Math.floor(index / size);
+          const revealOrder = Math.hypot(x - center, y - center);
+          const opacity = state.hack.resolving
+            ? 1
+            : smoothStep((spotlightRadius - revealOrder) / spotlightSoftness);
+          const scale = 0.86 + opacity * 0.14;
           const className = [
             state.hack.resolving && state.hack.success ? "result-glow" : "",
             state.hack.resolving && !state.hack.success ? "result-dim" : ""
           ].filter(Boolean).join(" ");
-          return `<span class="hack-key ${className}">${arrowSymbol(code)}</span>`;
+          return `<span class="hack-key ${className}" style="opacity:${opacity.toFixed(2)};transform:scale(${scale.toFixed(2)})">${arrowSymbol(code)}</span>`;
         })
         .join("");
       return `<span class="missing-vector-grid" style="--vector-size:${state.hack.missing.size}">${pattern}</span>`;
@@ -3523,7 +3770,11 @@
     function hackStatusText() {
       const base = `ATTEMPT ${state.hack.attempt} / LIMIT ${(state.hack.time / 1000).toFixed(2)} / ERROR = FAIL`;
       if (state.hack.resolving) return state.hack.success ? "BREACHED" : "DENIED";
-      if (state.hack.mode === "threshold") return `${base} / → WHEN PHASE LOCKS`;
+      if (state.hack.mode === "threshold") {
+        return state.hack.threshold?.variant === "drift"
+          ? `${base} / → WHEN SIGNAL ENTERS SITE`
+          : `${base} / → WHEN PHASE LOCKS`;
+      }
       if (state.hack.mode === "anomaly") return `${base} / FIND THE ODD ARROW`;
       if (state.hack.mode === "missing") return `${base} / INPUT THE MISSING VECTOR`;
       if (state.hack.mode === "ice") return `${base} / INPUT CYAN DIRECTION / HOLD IF BOTH LIT AMBER`;
@@ -3571,6 +3822,7 @@
       state.gameOver = false;
       state.battleReported = false;
       state.defeatedSide = "";
+      state.finalBlow = null;
       state.battleStats = {
         playerAttacks: 0,
         playerHits: 0,

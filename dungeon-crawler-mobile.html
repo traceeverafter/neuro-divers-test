@@ -1212,6 +1212,7 @@
     const SKILL_EXP_COSTS = [500, 750, 1000];
     const MAX_SKILL_LEVEL = 3;
     const MAX_WEAPON_LEVEL = 7;
+    const STARTING_WEAPON_LEVEL = 2;
     const STAT_CAP = 30;
     const WARP_TILE_COUNT = 2;
     const TRAP_TILE_COUNT = 3;
@@ -1349,8 +1350,8 @@
       playerDebuffType: "",
       playerName: DEFAULT_PLAYER_NAME,
       archetypeKey: "blade",
-      meleeWeaponLevel: 1,
-      shootingWeaponLevel: 1,
+      meleeWeaponLevel: STARTING_WEAPON_LEVEL,
+      shootingWeaponLevel: STARTING_WEAPON_LEVEL,
       jammerLevel: 2,
       mode: "title",
       customStats: {
@@ -1487,7 +1488,8 @@
         missingVectorAttempts: 0,
         missingVectorSuccesses: 0,
         iceGateAttempts: 0,
-        iceGateSuccesses: 0
+        iceGateSuccesses: 0,
+        finalBlow: null
       };
     }
 
@@ -1502,8 +1504,8 @@
       state.potions = 5;
       state.exp = 0;
       state.credits = 0;
-      state.meleeWeaponLevel = 1;
-      state.shootingWeaponLevel = 1;
+      state.meleeWeaponLevel = STARTING_WEAPON_LEVEL;
+      state.shootingWeaponLevel = STARTING_WEAPON_LEVEL;
       state.jammerLevel = 2;
       state.skills = {
         iaido: 0,
@@ -2152,6 +2154,7 @@
         addLog(`Enemy defeated. EXP +${reward.exp} / CREDIT +${reward.credits}.`);
       } else {
         state.adventureStats.losses += 1;
+        state.adventureStats.finalBlow = result.finalBlow || null;
         state.hp = 0;
         state.gameOver = true;
         state.resultPage = 0;
@@ -2460,8 +2463,8 @@
     }
 
     function weaponUpgradeCost(level, kind = "") {
-      const costs = [300, 500, 800, 1100, 1500, 2000];
-      const paidUpgradeIndex = kind === "jammer" ? level - 2 : level - 1;
+      const costs = [500, 800, 1100, 1500, 2000];
+      const paidUpgradeIndex = level - STARTING_WEAPON_LEVEL;
       return costs[Math.max(0, Math.min(costs.length - 1, paidUpgradeIndex))];
     }
 
@@ -2494,7 +2497,7 @@
     }
 
     function weaponPlusText(level) {
-      return level <= 1 ? "" : ` +${level - 1}`;
+      return level <= STARTING_WEAPON_LEVEL ? "" : ` +${level - STARTING_WEAPON_LEVEL}`;
     }
 
     function weaponDisplayName(kind) {
@@ -2514,11 +2517,11 @@
     }
 
     function jammerBonusSeconds(level = state.jammerLevel) {
-      return Math.max(0, level - 1) * 0.5;
+      return Math.max(0, level - STARTING_WEAPON_LEVEL + 1) * 0.5;
     }
 
     function jammerHitPenaltyBonus(level = state.jammerLevel) {
-      return Math.max(0, level - 1) * 2;
+      return Math.max(0, level - STARTING_WEAPON_LEVEL + 1) * 2;
     }
 
     function jammerDisplayName() {
@@ -2526,11 +2529,11 @@
     }
 
     function meleeWeaponDamage() {
-      return MELEE_WEAPON_BASE_DAMAGE + state.meleeWeaponLevel - 1;
+      return MELEE_WEAPON_BASE_DAMAGE + state.meleeWeaponLevel - STARTING_WEAPON_LEVEL;
     }
 
     function shootingWeaponDamage() {
-      return SHOOTING_WEAPON_BASE_DAMAGE + state.shootingWeaponLevel - 1;
+      return SHOOTING_WEAPON_BASE_DAMAGE + state.shootingWeaponLevel - STARTING_WEAPON_LEVEL;
     }
 
     function maxHp() {
@@ -2729,9 +2732,9 @@
       syncLegacyPlayerDebuff();
       state.playerName = data.playerName || DEFAULT_PLAYER_NAME;
       state.archetypeKey = data.archetypeKey || "blade";
-      state.meleeWeaponLevel = data.meleeWeaponLevel || 1;
-      state.shootingWeaponLevel = data.shootingWeaponLevel || 1;
-      state.jammerLevel = Number.isFinite(data.jammerLevel) ? data.jammerLevel : 2;
+      state.meleeWeaponLevel = Math.min(MAX_WEAPON_LEVEL, Math.max(STARTING_WEAPON_LEVEL, data.meleeWeaponLevel || STARTING_WEAPON_LEVEL));
+      state.shootingWeaponLevel = Math.min(MAX_WEAPON_LEVEL, Math.max(STARTING_WEAPON_LEVEL, data.shootingWeaponLevel || STARTING_WEAPON_LEVEL));
+      state.jammerLevel = Math.min(MAX_WEAPON_LEVEL, Math.max(STARTING_WEAPON_LEVEL, Number.isFinite(data.jammerLevel) ? data.jammerLevel : STARTING_WEAPON_LEVEL));
       state.customStats = { ...state.customStats, ...data.customStats };
       state.statLevels = { ...state.statLevels, ...data.statLevels };
       state.log = Array.isArray(data.log) ? data.log : [];
@@ -2931,11 +2934,12 @@
       ].map(weapon => {
         const capped = weapon.level >= MAX_WEAPON_LEVEL;
         const enabled = !capped && state.credits >= weapon.cost;
+        const levelNote = capped ? `LV ${weapon.level}/${MAX_WEAPON_LEVEL}` : `LV ${weapon.level} -> ${weapon.level + 1}`;
         const note = weapon.target === "jammer"
           ? capped
-            ? `猶予 +${weapon.damage.toFixed(1)}秒 / 命中低下 +${weapon.hitPenalty}%`
-            : `猶予 +${weapon.damage.toFixed(1)}秒 -> +${(weapon.damage + 0.5).toFixed(1)}秒 / 命中低下 +${weapon.hitPenalty}% -> +${weapon.hitPenalty + 2}%`
-          : capped ? `DMG ${weapon.damage} / 調整完了` : `DMG ${weapon.damage} -> ${weapon.damage + 1}`;
+            ? `${levelNote} / 猶予 +${weapon.damage.toFixed(1)}秒 / 命中低下 +${weapon.hitPenalty}%`
+            : `${levelNote} / 猶予 +${weapon.damage.toFixed(1)}秒 -> +${(weapon.damage + 0.5).toFixed(1)}秒 / 命中低下 +${weapon.hitPenalty}% -> +${weapon.hitPenalty + 2}%`
+          : capped ? `${levelNote} / DMG ${weapon.damage} / 調整終了` : `${levelNote} / DMG ${weapon.damage} -> ${weapon.damage + 1}`;
         return dojoButtonHtml({
           kind: "weapon",
           target: weapon.target,
@@ -2943,7 +2947,7 @@
           note,
           cost: capped ? "上限" : `${weapon.cost} CR`,
           enabled,
-          complete: capped ? "調整完了" : ""
+          complete: capped ? "調整終了" : ""
         });
       }).join("");
 
@@ -3586,10 +3590,6 @@
       text("ADVENTURE RESULT", r.x + 30, r.y + 48, 28, colors.red, "900");
       drawResultBadges(r);
 
-      if (state.resultPage === 1) {
-        drawJamResultPage(r, stats);
-        return;
-      }
       drawAdventureResultPage(r, stats);
     }
 
@@ -3626,8 +3626,50 @@
         text(String(value), x + 148, y, 17, colors.line, "900");
       });
 
-      drawCognitiveProfile(r, stats);
-      text("TAP: JAM TESTS", r.x + 34, r.y + r.h - 30, 17, colors.gold, "900");
+      drawResultEpitaph(r, stats);
+      text("TAP: TITLE", r.x + r.w - 116, r.y + r.h - 30, 17, colors.gold, "900");
+    }
+
+    function drawResultEpitaph(panel, stats) {
+      const profile = cognitiveProfileFor(stats);
+      const box = { x: panel.x + 30, y: panel.y + 302, w: panel.w - 60, h: 122 };
+      roundRect(box, "rgba(8, 12, 18, 0.92)", colors.panelBorder, 1, 8);
+      text("EPITAPH", box.x + 16, box.y + 24, 12, colors.muted, "850");
+      text(profile.title, box.x + 16, box.y + 50, 20, profile.color, "900");
+      fitText(runnerEpitaph(stats, profile), box.x + 16, box.y + 78, box.w - 32, 13, colors.line, "750");
+      fitText(finalCombatEpitaph(stats), box.x + 16, box.y + 102, box.w - 32, 13, colors.line, "750");
+    }
+
+    function finalCombatEpitaph(stats) {
+      const blow = stats.finalBlow;
+      if (!blow) return "最後は記録不明の攻撃で倒れた。";
+      const source = blow.source ? `${blow.source}による` : "";
+      return `${blow.defender}は${blow.attacker}の${source}${blow.attack}、${blow.damage}ダメージで倒れた。`;
+    }
+
+    function runnerEpitaph(stats, profile = cognitiveProfileFor(stats)) {
+      const totalHits = stats.playerHits || 0;
+      const totalAttacks = stats.playerAttacks || 0;
+      const hitRate = totalAttacks ? totalHits / totalAttacks : 0;
+      if (profile.title === "INSUFFICIENT DATA") {
+        return "このランナーは十分な接続ログを残さず、沈黙のまま深層から消えた。";
+      }
+      if (profile.title === "BALANCED NEURODIVER") {
+        return "このランナーは記憶、同期、探索を均整よく操り、安定した侵入精度で迷宮を進んだ。";
+      }
+      if (profile.title === "UNSTABLE SIGNAL") {
+        return hitRate >= 0.6
+          ? "このランナーはジャム信号こそ乱れたが、戦闘判断で回線の崩壊を押し留めた。"
+          : "このランナーは不安定な信号を抱えながらも、拒絶された回線を最後まで叩き続けた。";
+      }
+      const epitaphs = {
+        "SEQUENCE OPERATOR": "このランナーはコード列の揺らぎを読み、記憶と入力精度で侵入路を探っていた。",
+        "PHASE READER": "このランナーは揺れる位相の一瞬を待ち、時間感覚で防壁の隙間を測っていた。",
+        "ANOMALY HUNTER": "このランナーはノイズの群れから異物だけを拾い上げ、観測力で迷宮を剥がしていた。",
+        "VECTOR COMPLETER": "このランナーは欠けた方向を即座に補い、見えない選択肢へ踏み込んでいた。",
+        "ICE GATEKEEPER": "このランナーは危険信号への衝動を抑え、押すべき瞬間だけを選んでいた。"
+      };
+      return epitaphs[profile.title] || "このランナーは独自の痕跡を残し、迷宮の奥でひとつの型として記録された。";
     }
 
     function drawJamResultPage(r, stats) {
@@ -3807,7 +3849,7 @@
 
     function drawCognitiveProfile(panel, stats) {
       const profile = cognitiveProfileFor(stats);
-      const box = { x: panel.x + 30, y: panel.y + 360, w: panel.w - 60, h: 82 };
+      const box = { x: panel.x + 30, y: panel.y + 356, w: panel.w - 60, h: 82 };
       roundRect(box, "rgba(8, 12, 18, 0.92)", colors.panelBorder, 1, 8);
       text("COGNITIVE PROFILE", box.x + 16, box.y + 24, 12, colors.muted, "850");
       text(profile.title, box.x + 16, box.y + 50, 20, profile.color, "900");
@@ -4138,6 +4180,16 @@
       ctx.fillText(value, x, y);
     }
 
+    function fitText(value, x, y, maxWidth, size = 16, color = colors.line, weight = "normal") {
+      let fittedSize = size;
+      ctx.font = `${weight} ${fittedSize}px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace`;
+      while (fittedSize > 9 && ctx.measureText(value).width > maxWidth) {
+        fittedSize -= 1;
+        ctx.font = `${weight} ${fittedSize}px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace`;
+      }
+      text(value, x, y, fittedSize, color, weight);
+    }
+
     window.addEventListener("resize", resize);
     window.addEventListener("message", event => {
       if (!event.data || !state.combatOpen) return;
@@ -4220,17 +4272,7 @@
         return;
       }
       if (state.gameOver) {
-        if (state.resultPage === 0 && (event.code === "Enter" || event.code === "ArrowRight" || event.code === "Space")) {
-          state.resultPage = 1;
-          draw();
-          return;
-        }
-        if (state.resultPage === 1 && (event.code === "ArrowLeft" || event.code === "Escape" || event.code === "KeyB")) {
-          state.resultPage = 0;
-          draw();
-          return;
-        }
-        if (state.resultPage === 1 && (event.code === "Enter" || event.code === "ArrowRight" || event.code === "Space")) {
+        if (event.code === "Enter" || event.code === "ArrowRight" || event.code === "Space") {
           reborn();
         }
         return;
@@ -4368,27 +4410,6 @@
       if (state.gameOver && state.mode !== "title") {
         event.preventDefault();
         resetSwipeState();
-        if (state.resultPage === 0) {
-          state.resultPage = 1;
-          draw();
-          return;
-        }
-        const rect = canvas.getBoundingClientRect();
-        const point = {
-          x: (event.clientX - rect.left) * (GAME_W / rect.width),
-          y: (event.clientY - rect.top) * (GAME_H / rect.height)
-        };
-        const back = resultBackButtonRect(resultPanelRect(GAME_W, GAME_H));
-        if (
-          point.x >= back.x &&
-          point.x <= back.x + back.w &&
-          point.y >= back.y &&
-          point.y <= back.y + back.h
-        ) {
-          state.resultPage = 0;
-          draw();
-          return;
-        }
         reborn();
         return;
       }
