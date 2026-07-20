@@ -2937,6 +2937,10 @@
       return target;
     }
 
+    function extraKnockbackTargetFor(attacker, defender) {
+      return knockbackTargetFor(attacker, defender);
+    }
+
     function maybeKnockback(attacker, defender) {
       const target = knockbackTargetFor(attacker, defender);
       if (target === null || Math.random() >= KNOCKBACK_CHANCE) return false;
@@ -2948,6 +2952,12 @@
       defender.pos = target;
       playFootstepSound();
       addLog(`${defender.name}がノックバックしました。`);
+      const extraTarget = extraKnockbackTargetFor(attacker, defender);
+      if (extraTarget !== null && Math.random() < 0.5) {
+        defender.pos = extraTarget;
+        playFootstepSound();
+        addLog(`${defender.name}がさらに後退しました。`);
+      }
       return true;
     }
 
