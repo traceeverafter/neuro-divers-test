@@ -2406,7 +2406,7 @@
       const AudioContextClass = window.AudioContext || window.webkitAudioContext;
       if (!AudioContextClass) return null;
       if (!audioContext) audioContext = new AudioContextClass();
-      if (audioContext.state === "suspended") audioContext.resume();
+      if (audioContext.state === "suspended") audioContext.resume().catch(() => {});
       return audioContext;
     }
 
@@ -4531,6 +4531,10 @@
       if (event.code === "ArrowRight") runSelectedCommand();
     });
 
+    window.addEventListener("message", event => {
+      if (event.data?.type === "unlock-audio") getAudioContext();
+    });
+
     const swipeState = {
       active: false,
       pointerId: null,
@@ -4606,6 +4610,7 @@
 
     window.addEventListener("pointerdown", event => {
       if (!shouldHandleSwipe(event)) return;
+      getAudioContext();
       swipeState.active = true;
       swipeState.pointerId = event.pointerId;
       swipeState.x = event.clientX;

@@ -1385,7 +1385,8 @@
       bossDefeatedFloors: new Set(),
       adventureStats: createAdventureStats(),
       gameOver: false,
-      resultPage: 0
+      resultPage: 0,
+      resultInputReadyAt: 0
     };
 
     const colors = {
@@ -1536,6 +1537,7 @@
       state.adventureStats = createAdventureStats();
       state.gameOver = false;
       state.resultPage = 0;
+      state.resultInputReadyAt = 0;
       state.mode = "playing";
       state.log = [];
       hideTitle();
@@ -1597,6 +1599,7 @@
     function reborn() {
       state.gameOver = false;
       state.resultPage = 0;
+      state.resultInputReadyAt = 0;
       resetSwipeState();
       hideTitleConfirm();
       closeCombatPopup();
@@ -2169,6 +2172,7 @@
         state.hp = 0;
         state.gameOver = true;
         state.resultPage = 0;
+        state.resultInputReadyAt = performance.now() + 700;
         addLog("You fall in the dungeon.");
       }
       const clearedDebuffs = [];
@@ -2245,8 +2249,18 @@
       const AudioContextClass = window.AudioContext || window.webkitAudioContext;
       if (!AudioContextClass) return null;
       if (!audioContext) audioContext = new AudioContextClass();
-      if (audioContext.state === "suspended") audioContext.resume();
+      if (audioContext.state === "suspended") audioContext.resume().catch(() => {});
       return audioContext;
+    }
+
+    function unlockCombatAudio() {
+      if (!state.combatOpen) return;
+      const combatWindow = combatFrame.contentWindow;
+      try {
+        combatWindow?.getAudioContext?.();
+      } catch (error) {
+        combatWindow?.postMessage?.({ type: "unlock-audio" }, "*");
+      }
     }
 
     function createNoiseBuffer(context, duration) {
@@ -4301,6 +4315,7 @@
     function sendMobileKey(code) {
       const eventInit = { code, key: keyForCode(code), bubbles: true, cancelable: true };
       if (state.combatOpen && !state.pendingCombatResult) {
+        unlockCombatAudio();
         combatFrame.focus();
         combatFrame.contentWindow?.focus();
         combatFrame.contentWindow?.dispatchEvent(new KeyboardEvent("keydown", eventInit));
@@ -4360,6 +4375,7 @@
         return;
       }
       if (state.gameOver) {
+        if (performance.now() < state.resultInputReadyAt) return;
         if (event.code === "Enter" || event.code === "ArrowRight" || event.code === "Space") {
           reborn();
         }
@@ -4481,6 +4497,8 @@
 
     window.addEventListener("pointerdown", event => {
       if (!shouldHandleSwipe(event)) return;
+      getAudioContext();
+      unlockCombatAudio();
       swipeState.active = true;
       swipeState.pointerId = event.pointerId;
       swipeState.x = event.clientX;
@@ -4498,6 +4516,7 @@
       if (state.gameOver && state.mode !== "title") {
         event.preventDefault();
         resetSwipeState();
+        if (performance.now() < state.resultInputReadyAt) return;
         reborn();
         return;
       }
