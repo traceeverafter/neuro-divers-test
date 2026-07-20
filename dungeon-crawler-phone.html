@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>NEURO DIVERS Mobile</title>
+  <title>NEURO DIVERS Phone</title>
   <style>
     :root {
       color-scheme: dark;
@@ -70,7 +70,7 @@
       display: none;
       align-items: center;
       justify-content: center;
-      padding: 24px;
+      padding: max(6px, env(safe-area-inset-top, 0px)) max(6px, env(safe-area-inset-right, 0px)) max(6px, env(safe-area-inset-bottom, 0px)) max(6px, env(safe-area-inset-left, 0px));
       background: rgba(0, 0, 0, .78);
       z-index: 10;
     }
@@ -81,8 +81,8 @@
 
     .combat-popup {
       position: relative;
-      width: min(1080px, calc(100vw - 18px));
-      height: min(720px, calc(100vh - 18px));
+      width: calc(100vw - 12px);
+      height: calc(100vh - 12px);
       border: 0;
       border-radius: 8px;
       overflow: hidden;
@@ -234,7 +234,7 @@
       display: none;
       align-items: center;
       justify-content: center;
-      padding: 24px;
+      padding: 10px;
       background:
         radial-gradient(circle at 50% 18%, rgba(0, 229, 255, .14), transparent 32%),
         linear-gradient(180deg, rgba(0, 0, 0, .82), rgba(0, 0, 0, .94));
@@ -247,10 +247,12 @@
 
     .menu-panel {
       display: grid;
-      grid-template-columns: minmax(280px, 420px) minmax(280px, 420px);
-      gap: 18px;
-      width: min(900px, 94vw);
-      padding: 18px;
+      grid-template-columns: 1fr;
+      gap: 10px;
+      width: min(410px, calc(100vw - 18px));
+      max-height: calc(100vh - 18px);
+      overflow: auto;
+      padding: 12px;
       border: 1px solid rgba(0, 229, 255, .45);
       border-radius: 8px;
       background:
@@ -782,13 +784,86 @@
     }
 
     #pauseOverlay .menu-panel {
-      grid-template-columns: minmax(340px, 1fr) minmax(320px, 390px);
-      align-items: start;
+      grid-template-columns: minmax(0, 1.05fr) minmax(0, .95fr);
+      align-items: stretch;
+      width: min(844px, calc(100vw - 16px));
+      height: min(414px, calc(100vh - 16px));
+      max-height: none;
+      gap: 8px;
+      overflow: hidden;
+      padding: 9px;
+    }
+
+    #pauseOverlay .menu-panel > section {
+      min-height: 0;
+    }
+
+    #pauseOverlay .menu-panel > section:first-child {
+      display: grid;
+      grid-template-rows: auto 1fr;
+      overflow: hidden;
+    }
+
+    #pauseOverlay .menu-title {
+      margin-bottom: 7px;
+      font-size: 21px;
+    }
+
+    #pauseOverlay .dojo-list {
+      gap: 7px;
+      min-height: 0;
+      overflow-y: auto;
+      padding-right: 3px;
+      scrollbar-width: none;
+    }
+
+    #pauseOverlay .dojo-list::-webkit-scrollbar {
+      display: none;
+    }
+
+    #pauseOverlay .dojo-section {
+      gap: 4px;
+      padding: 6px;
+    }
+
+    #pauseOverlay .dojo-section h2 {
+      font-size: 11px;
+    }
+
+    #pauseOverlay .dojo-button {
+      grid-template-columns: 52px 1fr 62px;
+      gap: 6px;
+      min-height: 29px;
+      padding: 4px 6px;
+      border-radius: 7px;
+    }
+
+    #pauseOverlay .dojo-button strong {
+      font-size: 11px;
+    }
+
+    #pauseOverlay .dojo-button span {
+      font-size: 9px;
+      line-height: 1.15;
+    }
+
+    #pauseOverlay .dojo-button .dojo-cost {
+      font-size: 10px;
+    }
+
+    #pauseOverlay .dojo-complete {
+      margin-top: -2px;
+      padding: 1px 6px;
+      font-size: 9px;
     }
 
     #pauseOverlay .character-card {
+      display: grid;
+      grid-template-rows: 112px minmax(0, 1fr) 34px;
+      gap: 7px;
       min-height: 0;
-      padding: 14px;
+      padding: 9px;
+      overflow: hidden;
     }
 
     .dojo-potion-bar {
@@ -852,12 +927,135 @@
     }
 
     #pauseOverlay .character-art {
-      height: 365px;
-      margin-bottom: 12px;
+      height: 112px;
+      margin-bottom: 0;
+      background-position: center 18%;
+    }
+
+    #pauseOverlay .dojo-profile {
+      left: 7px;
+      right: 7px;
+      bottom: 7px;
+      gap: 4px;
+      padding: 7px;
+    }
+
+    #pauseOverlay .dojo-profile-name {
+      font-size: 14px;
+    }
+
+    #pauseOverlay .dojo-profile-meta {
+      gap: 4px;
+      font-size: 9px;
+    }
+
+    #pauseOverlay .dojo-profile-meta span {
+      padding: 2px 5px;
+    }
+
+    #pauseOverlay .dojo-potion-bar {
+      top: 7px;
+      right: 7px;
+      grid-template-columns: repeat(10, 6px);
+      gap: 2px;
+      padding: 5px 6px;
+    }
+
+    #pauseOverlay .dojo-potion-dot {
+      width: 6px;
+      height: 13px;
+    }
+
+    #pauseOverlay .dojo-skill-readout {
+      top: 7px;
+      left: 7px;
+      right: 112px;
+      gap: 3px;
+    }
+
+    #pauseOverlay .dojo-skill-chip {
+      padding: 4px 6px;
+      font-size: 8px;
+    }
+
+    #pauseOverlay .dojo-status {
+      gap: 6px;
+      min-height: 0;
+      overflow: hidden;
+    }
+
+    #pauseOverlay .dojo-status-strip {
+      gap: 5px;
+      padding: 6px;
+    }
+
+    #pauseOverlay .dojo-status-group {
+      gap: 4px;
+      padding: 5px;
+    }
+
+    #pauseOverlay .dojo-status-group-title {
+      font-size: 8px;
+    }
+
+    #pauseOverlay .dojo-status-group-grid {
+      gap: 4px;
+    }
+
+    #pauseOverlay .dojo-status-cell {
+      padding: 5px 4px;
+      border-radius: 7px;
+    }
+
+    #pauseOverlay .dojo-status-cell strong {
+      margin-bottom: 3px;
+      font-size: 8px;
+    }
+
+    #pauseOverlay .dojo-status-cell .value {
+      font-size: 17px;
+    }
+
+    #pauseOverlay .dojo-services,
+    #pauseOverlay .dojo-resources {
+      gap: 6px;
+    }
+
+    #pauseOverlay .dojo-service-button {
+      min-height: 36px;
+      padding: 6px;
+      font-size: 10px;
+      line-height: 1.15;
+    }
+
+    #pauseOverlay .dojo-service-button span {
+      margin-top: 2px;
+      font-size: 9px;
+    }
+
+    #pauseOverlay .dojo-resource-card {
+      min-height: 54px;
+      padding: 7px;
+    }
+
+    #pauseOverlay .dojo-resource-card strong {
+      font-size: 10px;
+    }
+
+    #pauseOverlay .dojo-resource-card .value {
+      margin-top: 5px;
+      font-size: 24px;
     }
 
     #pauseOverlay .menu-actions {
-      margin-top: 12px;
+      grid-template-columns: 1fr 1fr;
+      gap: 7px;
+      margin-top: 0;
+    }
+
+    #pauseOverlay .menu-actions button {
+      min-height: 34px;
+      font-size: 12px;
     }
 
     .title-confirm {
@@ -1134,7 +1332,7 @@
   </style>
 </head>
 <body>
-  <canvas id="game" aria-label="NEURO DIVERS Mobile" tabindex="0"></canvas>
+  <canvas id="game" aria-label="NEURO DIVERS Phone" tabindex="0"></canvas>
   <button class="pause-fab" id="mobilePauseButton" type="button">MENU</button>
   <div class="screen-overlay active" id="titleOverlay" aria-hidden="false">
     <div class="menu-panel">
@@ -1199,8 +1397,8 @@
   <div class="trap-flash" id="trapFlash" aria-hidden="true"></div>
 
   <script>
-    const GAME_W = 1024;
-    const GAME_H = 768;
+    const GAME_W = 860;
+    const GAME_H = 430;
     const MAP_W = 41;
     const MAP_H = 41;
     const START_X = 1;
@@ -1234,7 +1432,7 @@
       10: { loopRate: 0.2, stairBias: "final", warpCount: 3, trapCount: 5 }
     };
     const DEFAULT_PLAYER_NAME = "BLADE";
-    const SAVE_KEY = "neuro-divers-mobile-save-v1";
+    const SAVE_KEY = "neuro-divers-phone-save-v1";
     const SAVE_SLOT_COUNT = 10;
     const MELEE_WEAPON_NAME = "COMBAT KNIFE";
     const SHOOTING_WEAPON_NAME = "HANDGUN";
@@ -2102,7 +2300,7 @@
         t: Date.now()
       });
       if (ghostRunner) params.set("ghostRunner", JSON.stringify(ghostRunner));
-      combatFrame.src = `combat-system-mobile.html?${params.toString()}`;
+      combatFrame.src = `combat-system-phone.html?${params.toString()}`;
       draw();
     }
 
@@ -3138,6 +3336,7 @@
       drawFacingCompass(w, h);
       drawHud(w, h);
       drawLogPanel(w, h);
+      drawOperationPanel(w, h);
       if (state.showMap) drawMap(w, h);
       if (state.gameOver) drawGameOver(w, h);
     }
@@ -3151,8 +3350,7 @@
     }
 
     function dungeonViewRect(w, h) {
-      const viewW = 820;
-      return { x: (w - viewW) / 2, y: 28, w: viewW, h: 420 };
+      return { x: 14, y: 54, w: 550, h: 250 };
     }
 
     function drawView(w, h) {
@@ -3383,24 +3581,23 @@
     }
 
     function drawHud(w, h) {
-      const panelW = 820;
       const panel = {
-        x: (w - panelW) / 2,
-        y: 622,
-        w: panelW,
-        h: 112
+        x: 14,
+        y: h - 104,
+        w: w - 28,
+        h: 90
       };
       roundRect(panel, colors.panel, colors.panelBorder, 2, 8);
       const gap = 8;
       const inner = {
-        x: panel.x + 14,
-        y: panel.y + 14,
-        w: panel.w - 28,
-        h: panel.h - 28
+        x: panel.x + 10,
+        y: panel.y + 10,
+        w: panel.w - 20,
+        h: panel.h - 20
       };
-      const diverW = 112;
-      const abilityW = 264;
-      const gearW = 214;
+      const diverW = 108;
+      const abilityW = 278;
+      const gearW = 232;
       const resourceW = inner.w - diverW - abilityW - gearW - gap * 3;
       const diver = { x: inner.x, y: inner.y, w: diverW, h: inner.h };
       const ability = { x: diver.x + diver.w + gap, y: inner.y, w: abilityW, h: inner.h };
@@ -3426,19 +3623,18 @@
     }
 
     function drawLogPanel(w, h) {
-      const logH = 112;
-      const totalW = 820;
-      const gap = 10;
+      const logH = 92;
+      const gap = 8;
       const portrait = {
-        x: (w - totalW) / 2,
-        y: 492,
-        w: logH,
+        x: 580,
+        y: 54,
+        w: 72,
         h: logH
       };
       const panel = {
         x: portrait.x + portrait.w + gap,
         y: portrait.y,
-        w: Math.max(220, totalW - portrait.w - gap),
+        w: w - portrait.x - portrait.w - gap - 14,
         h: logH
       };
       drawDungeonPortrait(portrait);
@@ -3446,8 +3642,21 @@
       text("LOG", panel.x + 16, panel.y + 22, 12, colors.muted, "850");
       const logs = state.log.length > 0 ? state.log.slice(0, 3) : ["No events yet."];
       logs.forEach((entry, index) => {
-        text(truncateText(entry, 58), panel.x + 16, panel.y + 48 + index * 24, 15, colors.line, "650");
+        text(truncateText(entry, 23), panel.x + 12, panel.y + 40 + index * 18, 11, colors.line, "650");
       });
+    }
+
+    function drawOperationPanel(w, h) {
+      const panel = {
+        x: 580,
+        y: 158,
+        w: w - 594,
+        h: 146
+      };
+      const accent = neonWallColor();
+      roundRect(panel, "rgba(8, 12, 18, 0.92)", accent, 1, 10);
+      text("SWIPE FIELD", panel.x + 14, panel.y + 20, 10, colors.muted, "850");
+      text("MENU", panel.x + panel.w - 52, panel.y + 20, 10, colors.muted, "850");
     }
 
     function truncateText(value, maxChars) {
@@ -3495,14 +3704,14 @@
       ctx.textAlign = "center";
       ctx.shadowColor = accent;
       ctx.shadowBlur = 14;
-      text(dir.short, viewCenterX, viewTopY + 34, 34, accent, "900");
+      text(dir.short, viewCenterX, viewTopY - 12, 32, accent, "900");
       ctx.restore();
     }
 
     function drawDungeonInfoSection(r) {
       drawHudSectionFrame(r, "DIVER");
-      text(`B${state.floor}F`, r.x + 12, r.y + 39, 26, colors.line, "900");
-      drawMiniPotionPanel(r.x + 6, r.y + 50);
+      text(`B${state.floor}F`, r.x + 12, r.y + 35, 24, colors.line, "900");
+      drawMiniPotionPanel(r.x + 7, r.y + 45);
     }
 
     function drawMiniPotionPanel(x, y) {
@@ -3532,8 +3741,9 @@
 
     function drawStatusSection(r, title, entries) {
       drawHudSectionFrame(r, title);
-      const contentY = r.y + 30;
-      const contentH = r.h - 34;
+      const compact = r.h <= 48;
+      const contentY = r.y + (compact ? 17 : 21);
+      const contentH = r.h - (compact ? 20 : 25);
       const segment = r.w / entries.length;
       entries.forEach(([label, value, color], index) => {
         const px = r.x + index * segment + 8;
@@ -3547,14 +3757,14 @@
           ctx.stroke();
           ctx.restore();
         }
-        text(label === "JAMMER" ? "JAM" : label, px, contentY + 10, 10, color, "850");
-        text(String(value), px, contentY + contentH - 2, 22, color, "900");
+        text(label === "JAMMER" ? "JAM" : label, px, contentY + (compact ? 8 : 10), compact ? 8 : 10, color, "850");
+        text(String(value), px, contentY + contentH, compact ? 18 : 22, color, "900");
       });
     }
 
     function drawHudSectionFrame(r, title) {
       roundRect(r, colors.panelStrong, colors.panelBorder, 1, 8);
-      text(title, r.x + 10, r.y + 17, 10, colors.muted, "850");
+      text(title, r.x + 10, r.y + 13, 9, colors.muted, "850");
     }
 
     function drawPotionPanel(x, y) {
