@@ -1015,6 +1015,9 @@
       display: grid;
       gap: 8px;
       margin-top: 12px;
+      max-height: 390px;
+      overflow: auto;
+      padding-right: 4px;
     }
 
     .save-slot {
@@ -1205,6 +1208,7 @@
     const WALL = 1;
     const FLOOR = 0;
     const ENCOUNTER_RATE = 0.10;
+    const GHOST_RUNNER_RATE = 0.10;
     const LOOP_CONNECTION_RATE = 0.14;
     const POTION_PRICE = 50;
     const MAX_POTIONS = 10;
@@ -1231,7 +1235,7 @@
     };
     const DEFAULT_PLAYER_NAME = "BLADE";
     const SAVE_KEY = "neuro-divers-mobile-save-v1";
-    const SAVE_SLOT_COUNT = 3;
+    const SAVE_SLOT_COUNT = 10;
     const MELEE_WEAPON_NAME = "COMBAT KNIFE";
     const SHOOTING_WEAPON_NAME = "HANDGUN";
     const MELEE_WEAPON_BASE_DAMAGE = 2;
@@ -1489,6 +1493,8 @@
         missingVectorSuccesses: 0,
         iceGateAttempts: 0,
         iceGateSuccesses: 0,
+        deathAt: null,
+        deathPhrase: "",
         finalBlow: null
       };
     }
@@ -2032,12 +2038,14 @@
 
     function beginEncounter(enemyStrength = "") {
       if (state.encounterPending || state.combatOpen) return;
+      const ghostRunner = enemyStrength ? null : ghostRunnerForEncounter();
       state.encounterPending = true;
       playEncounterSound();
-      showEventPopup(enemyStrength === "boss" ? "BOSS" : "ENCOUNTER");
+      showEventPopup(enemyStrength === "boss" ? "BOSS" : ghostRunner ? "GHOST" : "ENCOUNTER");
+      if (ghostRunner) addLog("Lost diver signal detected.");
       window.setTimeout(() => {
         state.encounterPending = false;
-        openCombatPopup(enemyStrength);
+        openCombatPopup(enemyStrength, ghostRunner);
       }, 1000);
       draw();
     }
@@ -2053,7 +2061,7 @@
       draw();
     }
 
-    function openCombatPopup(enemyStrength = "") {
+    function openCombatPopup(enemyStrength = "", ghostRunner = null) {
       state.combatOpen = true;
       state.pendingCombatResult = null;
       state.combatReturnRequested = false;
@@ -2090,6 +2098,7 @@
         enemyStrength,
         t: Date.now()
       });
+      if (ghostRunner) params.set("ghostRunner", JSON.stringify(ghostRunner));
       combatFrame.src = `combat-system-mobile.html?${params.toString()}`;
       draw();
     }
@@ -2155,6 +2164,8 @@
       } else {
         state.adventureStats.losses += 1;
         state.adventureStats.finalBlow = result.finalBlow || null;
+        state.adventureStats.deathAt = Date.now();
+        state.adventureStats.deathPhrase = randomDeathPhrase();
         state.hp = 0;
         state.gameOver = true;
         state.resultPage = 0;
@@ -2188,10 +2199,13 @@
       const hackScore = safeNumber(result.enemyHackLevel);
       const floorBonus = Math.max(0, state.floor - 1);
       const strengthBonus = { weak: 0, even: 3, strong: 7, boss: 14 }[strength] || 3;
+      const exp = Math.max(base.exp, Math.round(5 + statScore / 17 + damageScore + hackScore + strengthBonus + floorBonus * 0.9));
+      const credits = Math.max(base.credits, Math.round(10 + statScore / 9.5 + damageScore * 2 + hackScore + strengthBonus + floorBonus * 2.15 + randInt(state.floor, state.floor * 2)));
+      const multiplier = result.ghostRunner ? 2 : 1;
       return {
         label: base.label,
-        exp: Math.max(base.exp, Math.round(5 + statScore / 17 + damageScore + hackScore + strengthBonus + floorBonus * 0.9)),
-        credits: Math.max(base.credits, Math.round(10 + statScore / 9.5 + damageScore * 2 + hackScore + strengthBonus + floorBonus * 2.15 + randInt(state.floor, state.floor * 2)))
+        exp: exp * multiplier,
+        credits: credits * multiplier
       };
     }
 
@@ -2591,8 +2605,54 @@
       return Array.from({ length: SAVE_SLOT_COUNT }, (_, index) => readSaveSlot(index));
     }
 
+    function ghostRunnerForEncounter() {
+      if (Math.random() >= GHOST_RUNNER_RATE) return null;
+      const candidates = saveSlots()
+        .map((slot, index) => ({ slot, index }))
+        .filter(({ slot, index }) => {
+          if (!slot || index === state.saveSlotIndex) return false;
+          return Math.abs((slot.floor || 1) - state.floor) <= 3;
+        });
+      if (!candidates.length) return null;
+      const { slot, index } = candidates[randInt(0, candidates.length - 1)];
+      return compactGhostRunner(slot, index);
+    }
+
+    function compactGhostRunner(slot, index) {
+      const archetype = ARCHETYPES.find(item => item.key === slot.archetypeKey) || ARCHETYPES[0];
+      return {
+        slot: index + 1,
+        name: slot.playerName || DEFAULT_PLAYER_NAME,
+        floor: slot.floor || 1,
+        archetypeKey: slot.archetypeKey || "blade",
+        image: archetype.file,
+        stats: {
+          meleeSkill: slot.meleeSkill ?? BASE_STATS.meleeSkill,
+          shootingSkill: slot.shootingSkill ?? BASE_STATS.shootingSkill,
+          agility: slot.agility ?? BASE_STATS.agility,
+          toughness: slot.toughness ?? BASE_STATS.toughness
+        },
+        weapons: {
+          meleeDamage: MELEE_WEAPON_BASE_DAMAGE + Math.max(STARTING_WEAPON_LEVEL, slot.meleeWeaponLevel || STARTING_WEAPON_LEVEL) - STARTING_WEAPON_LEVEL,
+          shootDamage: SHOOTING_WEAPON_BASE_DAMAGE + Math.max(STARTING_WEAPON_LEVEL, slot.shootingWeaponLevel || STARTING_WEAPON_LEVEL) - STARTING_WEAPON_LEVEL
+        },
+        jammerLevel: Math.max(STARTING_WEAPON_LEVEL, slot.jammerLevel || STARTING_WEAPON_LEVEL),
+        skills: { ...slot.skills }
+      };
+    }
+
     function firstEmptySaveSlotIndex() {
       return saveSlots().findIndex(slot => !slot);
+    }
+
+    function saveIdentityName(name) {
+      return String(name || DEFAULT_PLAYER_NAME).trim();
+    }
+
+    function currentSaveIdentityMatches(slot) {
+      if (!slot) return true;
+      return saveIdentityName(slot.playerName) === saveIdentityName(state.playerName)
+        && (slot.archetypeKey || "blade") === (state.archetypeKey || "blade");
     }
 
     function latestSavedSlotIndex() {
@@ -2649,6 +2709,9 @@
 
     function saveGame() {
       let slotIndex = state.saveSlotIndex;
+      if (slotIndex !== null && slotIndex >= 0 && slotIndex < SAVE_SLOT_COUNT && !currentSaveIdentityMatches(readSaveSlot(slotIndex))) {
+        slotIndex = null;
+      }
       if (slotIndex === null || slotIndex < 0 || slotIndex >= SAVE_SLOT_COUNT) {
         slotIndex = firstEmptySaveSlotIndex();
       }
@@ -3634,17 +3697,42 @@
       const profile = cognitiveProfileFor(stats);
       const box = { x: panel.x + 30, y: panel.y + 302, w: panel.w - 60, h: 122 };
       roundRect(box, "rgba(8, 12, 18, 0.92)", colors.panelBorder, 1, 8);
-      text("EPITAPH", box.x + 16, box.y + 24, 12, colors.muted, "850");
-      text(profile.title, box.x + 16, box.y + 50, 20, profile.color, "900");
-      fitText(runnerEpitaph(stats, profile), box.x + 16, box.y + 78, box.w - 32, 13, colors.line, "750");
-      fitText(finalCombatEpitaph(stats), box.x + 16, box.y + 102, box.w - 32, 13, colors.line, "750");
+      text(deathDateText(stats), box.x + 16, box.y + 28, 16, colors.muted, "900");
+      fitText(epitaphText(stats, profile), box.x + 16, box.y + 78, box.w - 32, 18, colors.line, "800");
+    }
+
+    function deathDateText(stats) {
+      const value = Number(stats.deathAt || Date.now());
+      const date = new Date(value);
+      const pad = number => String(number).padStart(2, "0");
+      return `DIED ${date.getFullYear()}/${pad(date.getMonth() + 1)}/${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
+    }
+
+    function epitaphText(stats, profile = cognitiveProfileFor(stats)) {
+      const name = state.playerName || DEFAULT_PLAYER_NAME;
+      return `${runnerEpitaph(stats, profile)}${name}は、${finalCombatEpitaph(stats)}`;
     }
 
     function finalCombatEpitaph(stats) {
       const blow = stats.finalBlow;
-      if (!blow) return "最後は記録不明の攻撃で倒れた。";
+      const phrase = stats.deathPhrase || "倒れた";
+      if (!blow) return `記録不明の攻撃で${phrase}。`;
       const source = blow.source ? `${blow.source}による` : "";
-      return `${blow.defender}は${blow.attacker}の${source}${blow.attack}、${blow.damage}ダメージで倒れた。`;
+      return `${blow.attacker}の${source}${blow.attack}で${phrase}。`;
+    }
+
+    function randomDeathPhrase() {
+      const phrases = [
+        "倒れた",
+        "沈黙した",
+        "接続を失った",
+        "深層に消えた",
+        "信号を絶たれた",
+        "記録を閉じた",
+        "迷宮に呑まれた",
+        "最後の同期を終えた"
+      ];
+      return phrases[randInt(0, phrases.length - 1)];
     }
 
     function runnerEpitaph(stats, profile = cognitiveProfileFor(stats)) {
@@ -3652,24 +3740,24 @@
       const totalAttacks = stats.playerAttacks || 0;
       const hitRate = totalAttacks ? totalHits / totalAttacks : 0;
       if (profile.title === "INSUFFICIENT DATA") {
-        return "このランナーは十分な接続ログを残さず、沈黙のまま深層から消えた。";
+        return "十分な接続ログを残さず、沈黙のまま深層を進んでいた";
       }
       if (profile.title === "BALANCED NEURODIVER") {
-        return "このランナーは記憶、同期、探索を均整よく操り、安定した侵入精度で迷宮を進んだ。";
+        return "記憶、同期、探索を均整よく操り、安定した侵入精度で迷宮を進んでいた";
       }
       if (profile.title === "UNSTABLE SIGNAL") {
         return hitRate >= 0.6
-          ? "このランナーはジャム信号こそ乱れたが、戦闘判断で回線の崩壊を押し留めた。"
-          : "このランナーは不安定な信号を抱えながらも、拒絶された回線を最後まで叩き続けた。";
+          ? "ジャム信号こそ乱れたが、戦闘判断で回線の崩壊を押し留めていた"
+          : "不安定な信号を抱えながらも、拒絶された回線を最後まで叩き続けていた";
       }
       const epitaphs = {
-        "SEQUENCE OPERATOR": "このランナーはコード列の揺らぎを読み、記憶と入力精度で侵入路を探っていた。",
-        "PHASE READER": "このランナーは揺れる位相の一瞬を待ち、時間感覚で防壁の隙間を測っていた。",
-        "ANOMALY HUNTER": "このランナーはノイズの群れから異物だけを拾い上げ、観測力で迷宮を剥がしていた。",
-        "VECTOR COMPLETER": "このランナーは欠けた方向を即座に補い、見えない選択肢へ踏み込んでいた。",
-        "ICE GATEKEEPER": "このランナーは危険信号への衝動を抑え、押すべき瞬間だけを選んでいた。"
+        "SEQUENCE OPERATOR": "コード列の揺らぎを読み、記憶と入力精度で侵入路を探っていた",
+        "PHASE READER": "揺れる位相の一瞬を待ち、時間感覚で防壁の隙間を測っていた",
+        "ANOMALY HUNTER": "ノイズの群れから異物だけを拾い上げ、観測力で迷宮を剥がしていた",
+        "VECTOR COMPLETER": "欠けた方向を即座に補い、見えない選択肢へ踏み込んでいた",
+        "ICE GATEKEEPER": "危険信号への衝動を抑え、押すべき瞬間だけを選んでいた"
       };
-      return epitaphs[profile.title] || "このランナーは独自の痕跡を残し、迷宮の奥でひとつの型として記録された。";
+      return epitaphs[profile.title] || "独自の痕跡を残し、迷宮の奥でひとつの記録になっていた";
     }
 
     function drawJamResultPage(r, stats) {

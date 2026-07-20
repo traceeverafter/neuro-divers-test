@@ -1871,6 +1871,7 @@
       PLAYER_TRAP_EFFECTS.push({ type: PLAYER_TRAP_DEBUFF_TYPE, turns: PLAYER_TRAP_DEBUFF_BATTLES });
     }
     const FORCED_ENEMY_STRENGTH = stringParam("enemyStrength", "");
+    const GHOST_RUNNER = jsonParam("ghostRunner");
     const ENEMY_STRENGTH_LEVELS = {
       weak: {
         label: "弱い",
@@ -2153,6 +2154,16 @@
       return value === "1" || value === "true";
     }
 
+    function jsonParam(name, fallback = null) {
+      const value = COMBAT_PARAMS.get(name);
+      if (!value) return fallback;
+      try {
+        return JSON.parse(value);
+      } catch (error) {
+        return fallback;
+      }
+    }
+
     function normalizedSkillLevel(value) {
       if (typeof value === "number") return Math.max(0, Math.min(MAX_SKILL_LEVEL, Math.floor(value)));
       return value ? 1 : 0;
@@ -2302,51 +2313,71 @@
       if (!context) return;
 
       const now = context.currentTime;
+      const clang = context.createOscillator();
+      const clangFilter = context.createBiquadFilter();
+      const clangGain = context.createGain();
+      const drive = context.createWaveShaper();
       const noise = context.createBufferSource();
-      const filter = context.createBiquadFilter();
-      const gain = context.createGain();
-      const accent = context.createOscillator();
-      const accentGain = context.createGain();
-      const sweep = context.createOscillator();
-      const sweepGain = context.createGain();
-      const sweepFilter = context.createBiquadFilter();
+      const noiseFilter = context.createBiquadFilter();
+      const noiseGain = context.createGain();
+      const pulse = context.createOscillator();
+      const pulseGain = context.createGain();
+      const hat = context.createBufferSource();
+      const hatHighpass = context.createBiquadFilter();
+      const hatFilter = context.createBiquadFilter();
+      const hatGain = context.createGain();
 
-      noise.buffer = createNoiseBuffer(context, 0.052 + level * 0.005);
-      filter.type = "highpass";
-      filter.frequency.setValueAtTime(5600 + level * 410, now);
-      filter.frequency.exponentialRampToValueAtTime(3900 + level * 260, now + 0.04);
-      filter.Q.setValueAtTime(0.9 + level * 0.06, now);
+      drive.curve = new Float32Array([-1, -.82, -.28, 0, .28, .82, 1]);
+      drive.oversample = "2x";
 
-      gain.gain.setValueAtTime(0.0001, now);
-      gain.gain.exponentialRampToValueAtTime(0.19 + level * 0.018, now + 0.002);
-      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.06 + level * 0.006);
+      clang.type = "sawtooth";
+      clang.frequency.setValueAtTime(260 + level * 18, now);
+      clang.frequency.exponentialRampToValueAtTime(86 + level * 7, now + 0.13);
+      clangFilter.type = "bandpass";
+      clangFilter.frequency.setValueAtTime(560 + level * 38, now);
+      clangFilter.frequency.exponentialRampToValueAtTime(420 + level * 28, now + 0.12);
+      clangFilter.Q.setValueAtTime(7.5, now);
+      clangGain.gain.setValueAtTime(0.0001, now);
+      clangGain.gain.exponentialRampToValueAtTime(0.24 + level * 0.018, now + 0.004);
+      clangGain.gain.exponentialRampToValueAtTime(0.052 + level * 0.005, now + 0.075);
+      clangGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.18);
 
-      accent.type = "square";
-      accent.frequency.setValueAtTime(8300 + level * 460, now);
-      accentGain.gain.setValueAtTime(0.0001, now);
-      accentGain.gain.exponentialRampToValueAtTime(0.032 + level * 0.004, now + 0.001);
-      accentGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.024);
+      noise.buffer = createNoiseBuffer(context, 0.12 + level * 0.01);
+      noiseFilter.type = "bandpass";
+      noiseFilter.frequency.setValueAtTime(2100 + level * 170, now);
+      noiseFilter.frequency.exponentialRampToValueAtTime(980 + level * 90, now + 0.08);
+      noiseFilter.Q.setValueAtTime(3.8, now);
+      noiseGain.gain.setValueAtTime(0.0001, now);
+      noiseGain.gain.exponentialRampToValueAtTime(0.16 + level * 0.013, now + 0.003);
+      noiseGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.095);
 
-      sweep.type = "sawtooth";
-      sweep.frequency.setValueAtTime(2600 + level * 170, now);
-      sweep.frequency.exponentialRampToValueAtTime(820 + level * 70, now + 0.09);
-      sweepFilter.type = "bandpass";
-      sweepFilter.frequency.setValueAtTime(3600 + level * 240, now);
-      sweepFilter.frequency.exponentialRampToValueAtTime(1600 + level * 120, now + 0.085);
-      sweepFilter.Q.setValueAtTime(4.2, now);
-      sweepGain.gain.setValueAtTime(0.0001, now);
-      sweepGain.gain.exponentialRampToValueAtTime(0.055 + level * 0.005, now + 0.006);
-      sweepGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.105);
+      pulse.type = "square";
+      pulse.frequency.setValueAtTime(68 + level * 5, now);
+      pulse.frequency.exponentialRampToValueAtTime(42 + level * 3, now + 0.12);
+      pulseGain.gain.setValueAtTime(0.0001, now);
+      pulseGain.gain.exponentialRampToValueAtTime(0.14 + level * 0.012, now + 0.002);
+      pulseGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.11);
 
-      noise.connect(filter).connect(gain).connect(context.destination);
-      accent.connect(accentGain).connect(context.destination);
-      sweep.connect(sweepFilter).connect(sweepGain).connect(context.destination);
+      hat.buffer = createNoiseBuffer(context, 0.035);
+      hatHighpass.type = "highpass";
+      hatHighpass.frequency.setValueAtTime(5200 + level * 260, now);
+      hatFilter.type = "bandpass";
+      hatFilter.frequency.setValueAtTime(8200 + level * 360, now);
+      hatFilter.Q.setValueAtTime(1.1, now);
+      hatGain.gain.setValueAtTime(0.105 + level * 0.007, now);
+
+      clang.connect(clangFilter).connect(drive).connect(clangGain).connect(context.destination);
+      noise.connect(noiseFilter).connect(noiseGain).connect(context.destination);
+      pulse.connect(pulseGain).connect(context.destination);
+      hat.connect(hatHighpass).connect(hatFilter).connect(hatGain).connect(context.destination);
+      clang.start(now);
+      clang.stop(now + 0.19);
       noise.start(now);
-      noise.stop(now + 0.09);
-      accent.start(now);
-      accent.stop(now + 0.03);
-      sweep.start(now);
-      sweep.stop(now + 0.11);
+      noise.stop(now + 0.13);
+      pulse.start(now);
+      pulse.stop(now + 0.13);
+      hat.start(now);
+      hat.stop(now + 0.035);
     }
 
     function playBeamSound(level = 1) {
@@ -2526,21 +2557,31 @@
       return unit.statusEffects?.find(effect => effect.type === type && effect.turns > 0) || null;
     }
 
-    function addStatusEffect(unit, type, turns, power = 0) {
+    function addStatusEffect(unit, type, turns, power = 0, options = {}) {
       if (!unit.statusEffects) unit.statusEffects = [];
       const existing = unit.statusEffects.find(effect => effect.type === type);
       if (existing) {
         existing.turns = Math.max(existing.turns, turns);
         existing.power = Math.max(existing.power || 0, power);
+        existing.skipNextTick = Boolean(options.skipNextTick);
       } else {
-        unit.statusEffects.push({ type, turns, power });
+        unit.statusEffects.push({ type, turns, power, skipNextTick: Boolean(options.skipNextTick) });
       }
     }
 
     function tickStatusEffects(unit) {
       if (!unit.statusEffects) return;
       unit.statusEffects.forEach(effect => {
+        if (effect.skipNextTick) {
+          effect.skipNextTick = false;
+          return;
+        }
         effect.turns -= 1;
+        if (effect.turns > 0) {
+          addLog(`${unit.name}の${JAM_EFFECTS[effect.type]?.label || effect.type}残り${effect.turns}T。`);
+        } else {
+          addLog(`${unit.name}の${JAM_EFFECTS[effect.type]?.label || effect.type}が解除された。`);
+        }
       });
       unit.statusEffects = unit.statusEffects.filter(effect => effect.turns > 0);
     }
@@ -2943,7 +2984,7 @@
         const winner = state.player.hp > 0 ? state.player.name : state.enemy.name;
         addLog(`${winner}の勝利です。`);
       } else {
-        if (actingUnit.side === "enemy") tickStatusEffects(state.enemy);
+        tickStatusEffects(actingUnit);
         switchTurn();
       }
       render();
@@ -2970,6 +3011,7 @@
             shoot: state.enemy.attacks.shoot.damage
           },
           enemyHackLevel: state.enemy.hackLevel,
+          ghostRunner: Boolean(GHOST_RUNNER),
           finalBlow: state.finalBlow ? { ...state.finalBlow } : null,
           battleStats: { ...state.battleStats }
         }, "*");
@@ -3261,6 +3303,46 @@
       );
     }
 
+    function ghostRunnerType(ghost) {
+      const stats = ghost?.stats || {};
+      const meleeScore = (stats.meleeSkill || 0) + (ghost?.weapons?.meleeDamage || 0) * 3;
+      const shootScore = (stats.shootingSkill || 0) + (ghost?.weapons?.shootDamage || 0) * 3;
+      if (shootScore > meleeScore + 5) return "shooter";
+      if (meleeScore > shootScore + 5) return "melee";
+      return "balanced";
+    }
+
+    function configureGhostRunner(ghost) {
+      state.enemyType = ghostRunnerType(ghost);
+      state.enemyStrength = "strong";
+      state.enemy.name = String(ghost?.name || "LOST DIVER").trim().slice(0, 16) || "LOST DIVER";
+      state.enemy.typeLabel = "ゴーストランナー";
+      state.enemy.strengthLabel = "GHOST";
+      state.enemy.portrait = "◆";
+      state.enemy.logImage = ghost?.image || "character-ghost.png";
+      document.documentElement.style.setProperty("--enemy-log-image", `url("${state.enemy.logImage}")`);
+      state.enemy.featureText = `B${ghost?.floor || "?"}Fで記録されたランナーの残響が、敵性人格として再起動している。`;
+      state.enemy.scene = state.enemy.featureText;
+      state.enemy.stats = clampEnemyStats({
+        meleeSkill: Number(ghost?.stats?.meleeSkill || 10),
+        shootingSkill: Number(ghost?.stats?.shootingSkill || 10),
+        agility: Number(ghost?.stats?.agility || 10),
+        toughness: Number(ghost?.stats?.toughness || 10)
+      });
+      state.enemy.attacks = {
+        melee: { label: "ゴースト短刀", damage: Math.max(1, Number(ghost?.weapons?.meleeDamage || 2)) },
+        shoot: { label: "ゴースト射撃", damage: Math.max(1, Number(ghost?.weapons?.shootDamage || 2)) }
+      };
+      state.enemy.skills = {
+        iaido: normalizedSkillLevel(ghost?.skills?.iaido),
+        mindEye: normalizedSkillLevel(ghost?.skills?.mindEye),
+        dash: normalizedSkillLevel(ghost?.skills?.dash),
+        immovable: normalizedSkillLevel(ghost?.skills?.immovable),
+        mizukagami: normalizedSkillLevel(ghost?.skills?.mizukagami)
+      };
+      state.enemy.hackLevel = Math.max(1, Math.min(5, Number(ghost?.jammerLevel || 2)));
+    }
+
     function enemyFeatureText(profile, speciesFeature, traitFeature) {
       const traitIsDominant = profile.trait.prefix !== "NULL" && Math.random() < 0.52;
       if (traitIsDominant) return traitFeature;
@@ -3487,8 +3569,18 @@
         addLog(`ジャミング成功: ${effect.label}。`);
       } else {
         addLog(`ジャミング失敗${reason ? `: ${reason}` : ""}。`);
+        triggerGhostRunnerFirewall(type);
       }
       finishAction();
+    }
+
+    function triggerGhostRunnerFirewall(type) {
+      if (!GHOST_RUNNER) return;
+      const effect = JAM_EFFECTS[type];
+      if (!effect) return;
+      const power = Math.max(0, (state.enemy.hackLevel || 1) - 1);
+      addStatusEffect(state.player, type, effect.turns, power, { skipNextTick: true });
+      addLog(`${state.enemy.name}の攻性防壁によって${effect.label}を受けた。`);
     }
 
     function recordHackMiniGameResult(mode, success) {
@@ -3563,7 +3655,7 @@
       if (threshold.variant === "drift") {
         const drift = thresholdDriftState();
         const distance = Math.hypot(drift.x, drift.y);
-        return distance <= thresholdDriftSiteRadius() - threshold.pointRadius + 1;
+        return distance <= thresholdDriftSiteRadius() + threshold.pointRadius;
       }
       const phase = thresholdPhaseState();
       const gateAngle = threshold.gateRing === "inner" ? phase.inner : phase.outer;
@@ -3801,8 +3893,10 @@
       clearAttackRolls();
       elements.hackPanel.classList.remove("active");
       const positions = randomStartingPositions();
-      const strength = randomEnemyStrength();
+      const isGhostRunner = Boolean(GHOST_RUNNER);
+      const strength = isGhostRunner ? "strong" : randomEnemyStrength();
       configureEnemyType(type, strength);
+      if (isGhostRunner) configureGhostRunner(GHOST_RUNNER);
       state.player.name = PLAYER_NAME;
       state.player.stats = { ...PLAYER_STATS };
       state.player.skills = { ...PLAYER_SKILLS };
@@ -3814,9 +3908,9 @@
       state.enemy.hp = maxHpFor(state.enemy);
       state.enemy.potions = randomEnemyPotions();
       state.enemy.statusEffects = [];
-      state.enemy.skills = enemySkillsFor(strength);
+      if (!isGhostRunner) state.enemy.skills = enemySkillsFor(strength);
       state.player.statusEffects = PLAYER_TRAP_EFFECTS.map(effect => ({ ...effect }));
-      state.enemy.hackLevel = enemyHackLevel(strength);
+      if (!isGhostRunner) state.enemy.hackLevel = enemyHackLevel(strength);
       state.player.potions = STARTING_POTIONS;
       state.turn = randomFirstTurn();
       state.gameOver = false;
