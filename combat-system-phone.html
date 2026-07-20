@@ -1757,6 +1757,232 @@
         font-size: clamp(46px, 16vw, 68px);
       }
     }
+
+    @media (orientation: landscape) and (max-height: 540px) {
+      main {
+        width: min(100vw - 8px, 860px);
+        padding: 3px 0;
+      }
+
+      .layout {
+        gap: 5px;
+        padding: 5px;
+      }
+
+      .arena {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 276px;
+        grid-template-rows: 226px;
+        gap: 5px;
+        align-items: stretch;
+      }
+
+      .encounter-scene {
+        min-height: 0;
+        height: 226px;
+        grid-column: 1;
+        grid-row: 1;
+      }
+
+      .status-row {
+        grid-column: 2;
+        grid-row: 1;
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 5px;
+        min-height: 0;
+        margin: 0;
+      }
+
+      .fighter {
+        gap: 4px;
+        min-height: 0;
+        padding: 6px 7px;
+      }
+
+      .fighter.enemy,
+      .enemy .name {
+        text-align: left;
+        justify-content: flex-start;
+      }
+
+      .player-name-row {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 4px;
+      }
+
+      .name {
+        gap: 5px;
+        font-size: 12px;
+      }
+
+      .hp-readout {
+        padding: 1px 6px;
+        font-size: 10px;
+      }
+
+      .skill-readout,
+      .potion-readout {
+        justify-self: start;
+      }
+
+      .potion-readout {
+        grid-template-columns: repeat(10, 5px);
+        gap: 2px;
+        padding: 3px 5px;
+      }
+
+      .potion-dot {
+        width: 5px;
+        height: 10px;
+      }
+
+      .hpbar {
+        height: 6px;
+      }
+
+      .combat-stat-grid {
+        grid-template-columns: repeat(7, minmax(0, 1fr));
+        gap: 3px;
+      }
+
+      .combat-stat-card {
+        min-height: 30px;
+        padding: 4px 3px;
+        border-radius: 6px;
+      }
+
+      .combat-stat-card .stat-label {
+        margin-bottom: 2px;
+        font-size: 7px;
+      }
+
+      .combat-stat-card .stat-value {
+        font-size: 14px;
+      }
+
+      .enemy-tag {
+        justify-self: start;
+        max-height: 43px;
+        max-width: 100%;
+        overflow: hidden;
+        font-size: 10px;
+        line-height: 1.35;
+      }
+
+      .range-callout {
+        display: none;
+      }
+
+      .board {
+        left: 7%;
+        right: 7%;
+        top: 44%;
+        height: 27%;
+      }
+
+      .piece {
+        width: clamp(42px, 7vw, 58px);
+        height: clamp(42px, 7vw, 58px);
+        font-size: clamp(36px, 8vw, 54px);
+        transform: translateY(-10px) rotate(45deg);
+      }
+
+      .attack-bubble {
+        top: 6%;
+        max-width: 45%;
+        padding: 6px 8px;
+        font-size: 10px;
+      }
+
+      .move-end-panel {
+        top: 25%;
+        padding: 5px 8px;
+        font-size: 10px;
+      }
+
+      .move-end-panel button {
+        min-height: 24px;
+        padding: 0 9px;
+        font-size: 10px;
+      }
+
+      .controls {
+        grid-template-columns: minmax(0, 1fr) 252px;
+        grid-template-rows: 144px;
+        gap: 5px;
+        padding: 5px;
+      }
+
+      .control-group,
+      .log {
+        grid-row: 1;
+        border-width: 2px;
+        border-radius: 12px;
+      }
+
+      .control-group {
+        grid-column: 2;
+        height: 144px;
+        padding: 7px;
+      }
+
+      .control-group:not(.is-internal) .button-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 4px;
+        height: 100%;
+        align-content: stretch;
+      }
+
+      .command-section {
+        gap: 3px;
+        min-width: 0;
+      }
+
+      .command-button {
+        grid-template-columns: 34px minmax(0, 1fr) 12px;
+        min-height: 29px;
+        padding: 0 6px;
+        font-size: 10px;
+      }
+
+      .command-category {
+        font-size: 7px;
+      }
+
+      .command-button.selected::after {
+        font-size: 13px;
+      }
+
+      .log {
+        grid-column: 1;
+        height: 144px;
+        min-height: 0;
+        max-height: none;
+        padding: 8px 10px;
+        font-size: 11px;
+        line-height: 1.28;
+        background:
+          linear-gradient(90deg, #000 0%, rgba(0, 0, 0, .96) 34%, rgba(0, 0, 0, .42) 58%, rgba(0, 0, 0, 0) 100%),
+          linear-gradient(180deg, rgba(0, 0, 0, 0), rgba(0, 0, 0, .22)),
+          var(--enemy-log-image, url("enemy-log-bg.png")) right center / auto 128% no-repeat,
+          #000;
+      }
+
+      .log p {
+        max-width: 64%;
+        margin: 0 0 4px;
+        font-size: 11px;
+        line-height: 1.28;
+      }
+
+      .hack-panel {
+        width: min(720px, calc(100vw - 18px));
+        max-height: calc(100vh - 18px);
+        padding: 14px 16px;
+      }
+    }
   </style>
 </head>
 <body>
