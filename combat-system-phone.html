@@ -2141,6 +2141,7 @@
     const AGILITY_DASH_THRESHOLD = 18;
     const TOUGHNESS_GUARD_THRESHOLD = 18;
     const KNOCKBACK_CHANCE = 0.5;
+    const KNOCKBACK_EXTRA_CHANCE = 0.25;
     const MELEE_HIT_BASE = 65;
     const FOG_EVASION_PENALTY = 10;
     const FOG_MELEE_PENALTY = 20;
@@ -3186,7 +3187,7 @@
       playFootstepSound();
       addLog(`${defender.name}がノックバックしました。`);
       const extraTarget = extraKnockbackTargetFor(attacker, defender);
-      if (extraTarget !== null && Math.random() < 0.5) {
+      if (extraTarget !== null && Math.random() < KNOCKBACK_EXTRA_CHANCE) {
         defender.pos = extraTarget;
         playFootstepSound();
         addLog(`${defender.name}がさらに後退しました。`);
