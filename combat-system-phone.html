@@ -2146,6 +2146,7 @@
     const FOG_MELEE_PENALTY = 20;
     const PARALYZE_EVASION_PENALTY = 15;
     const PARALYZE_MELEE_PENALTY = 10;
+    const PARALYZE_DAMAGE_MULTIPLIER = 0.75;
     const JAMMER_HIT_PENALTY_STEP = 2;
     const SHOOTING_DISTANCE_BASE = { 2: 60, 3: 45, 4: 30 };
     const SHOOTER_CLOSE_HIT_THRESHOLD = 30;
@@ -3275,6 +3276,7 @@
       const hitRate = finalHitRateFor(attacker, attackData, defender);
       let rawDamage = rollAttackDamage(attacker, attackData, kind);
       if (damageMultiplier !== 1) rawDamage = Math.max(1, Math.floor(rawDamage * damageMultiplier));
+      if (hasStatus(attacker, "paralyze")) rawDamage = Math.max(1, Math.floor(rawDamage * PARALYZE_DAMAGE_MULTIPLIER));
       const reduction = toughnessReductionFor(defender, rawDamage);
       const damage = reduction.damage;
       const roll = Math.floor(Math.random() * 100) + 1;
