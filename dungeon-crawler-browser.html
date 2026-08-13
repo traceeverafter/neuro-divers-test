@@ -986,7 +986,7 @@
 
     .save-slot {
       display: grid;
-      grid-template-columns: 48px 1fr auto auto;
+      grid-template-columns: 48px 1fr auto;
       gap: 8px;
       align-items: center;
       padding: 8px;
@@ -1077,6 +1077,55 @@
     .save-slot button.delete {
       border-color: rgba(227, 53, 53, .45);
       color: #ff9a8a;
+    }
+
+    .save-slot-actions {
+      display: grid;
+      grid-template-columns: repeat(3, auto);
+      gap: 6px;
+      align-items: center;
+    }
+
+    .save-slot-confirm {
+      display: grid;
+      grid-template-columns: auto auto;
+      gap: 5px;
+      align-items: center;
+    }
+
+    .save-slot-confirm button {
+      min-width: 48px;
+    }
+
+    .save-slot-confirm button.sure {
+      border-color: rgba(227, 53, 53, .58);
+      color: #ff9a8a;
+    }
+
+    .save-slot-rename {
+      grid-column: 2 / -1;
+      display: grid;
+      grid-template-columns: minmax(120px, 1fr) auto auto;
+      gap: 6px;
+      align-items: center;
+    }
+
+    .save-slot-rename input {
+      min-height: 30px;
+      min-width: 0;
+      border: 1px solid rgba(0, 229, 255, .38);
+      border-radius: 7px;
+      padding: 0 8px;
+      background: rgba(2, 6, 10, .86);
+      color: var(--line);
+      font: inherit;
+      font-weight: 900;
+      outline: none;
+    }
+
+    .save-slot-rename input:focus {
+      border-color: rgba(240, 196, 65, .7);
+      box-shadow: 0 0 14px rgba(240, 196, 65, .14);
     }
 
     .save-slot button:disabled {
@@ -2524,6 +2573,9 @@
       draw();
     }
 
+    let pendingDeleteSlotIndex = null;
+    let pendingRenameSlotIndex = null;
+
     function renderTitleMenu() {
       applyPortraitArt();
       if (document.activeElement !== runnerNameInput) {
@@ -2657,8 +2709,23 @@
         <div class="save-slot">
           ${saveSlotPortraitHtml(slot)}
           <div class="save-slot-main">${saveSlotSummary(slot, index)}</div>
-          <button type="button" data-save-load="${index}" ${slot ? "" : "disabled"}>LOAD</button>
-          <button class="delete" type="button" data-save-delete="${index}" ${slot ? "" : "disabled"}>DELETE</button>
+          <div class="save-slot-actions">
+            <button type="button" data-save-load="${index}" ${slot ? "" : "disabled"}>LOAD</button>
+            <button type="button" data-save-rename="${index}" ${slot ? "" : "disabled"}>RENAME</button>
+            ${pendingDeleteSlotIndex === index && slot ? `
+              <span class="save-slot-confirm">
+                <button class="sure" type="button" data-save-delete-confirm="${index}">sure?</button>
+                <button type="button" data-save-delete-cancel="${index}">no</button>
+              </span>
+            ` : `<button class="delete" type="button" data-save-delete="${index}" ${slot ? "" : "disabled"}>DELETE</button>`}
+          </div>
+          ${pendingRenameSlotIndex === index && slot ? `
+            <div class="save-slot-rename">
+              <input type="text" maxlength="12" value="${escapeHtml(slot.playerName || DEFAULT_PLAYER_NAME)}" data-save-rename-input="${index}" autocomplete="off" spellcheck="false">
+              <button type="button" data-save-rename-confirm="${index}">SAVE</button>
+              <button type="button" data-save-rename-cancel="${index}">no</button>
+            </div>
+          ` : ""}
         </div>
       `).join("");
     }
@@ -2729,6 +2796,30 @@
         return;
       }
       if (state.saveSlotIndex === index) state.saveSlotIndex = null;
+      pendingDeleteSlotIndex = null;
+      renderTitleMenu();
+    }
+
+    function renameSaveSlot(index, nextName) {
+      const slot = readSaveSlot(index);
+      if (!slot) return;
+      const playerName = String(nextName).trim().slice(0, 12);
+      if (!playerName) return;
+      try {
+        localStorage.setItem(saveSlotKey(index), JSON.stringify({
+          ...slot,
+          playerName,
+          savedAt: Date.now()
+        }));
+      } catch (error) {
+        return;
+      }
+      if (state.saveSlotIndex === index) {
+        state.playerName = playerName;
+        runnerNameInput.value = playerName;
+      }
+      pendingDeleteSlotIndex = null;
+      pendingRenameSlotIndex = null;
       renderTitleMenu();
     }
 
@@ -2865,7 +2956,7 @@
             })}
             ${dojoServiceButtonHtml({
               action: "radar",
-              label: "レーダー捜査依頼",
+              label: "レーダー走査依頼",
               note: `${MAP_PRICE} CREDIT`,
               enabled: state.credits >= MAP_PRICE
             })}
@@ -3632,7 +3723,7 @@
       const value = Number(stats.deathAt || Date.now());
       const date = new Date(value);
       const pad = number => String(number).padStart(2, "0");
-      return `DIED ${date.getFullYear()}/${pad(date.getMonth() + 1)}/${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
+      return `DISCONNECTED ${date.getFullYear()}/${pad(date.getMonth() + 1)}/${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
     }
 
     function epitaphText(stats, profile = cognitiveProfileFor(stats)) {
@@ -4319,12 +4410,60 @@
     saveSlotList.addEventListener("click", event => {
       const loadButton = event.target.closest("button[data-save-load]");
       if (loadButton && !loadButton.disabled) {
+        pendingDeleteSlotIndex = null;
         continueSavedGame(Number(loadButton.dataset.saveLoad));
+        return;
+      }
+      const renameButton = event.target.closest("button[data-save-rename]");
+      if (renameButton && !renameButton.disabled) {
+        pendingRenameSlotIndex = Number(renameButton.dataset.saveRename);
+        pendingDeleteSlotIndex = null;
+        renderTitleMenu();
+        const input = saveSlotList.querySelector(`input[data-save-rename-input="${pendingRenameSlotIndex}"]`);
+        input?.focus();
+        input?.select();
+        return;
+      }
+      const renameConfirmButton = event.target.closest("button[data-save-rename-confirm]");
+      if (renameConfirmButton) {
+        const index = Number(renameConfirmButton.dataset.saveRenameConfirm);
+        const input = saveSlotList.querySelector(`input[data-save-rename-input="${index}"]`);
+        renameSaveSlot(index, input?.value || "");
+        return;
+      }
+      const renameCancelButton = event.target.closest("button[data-save-rename-cancel]");
+      if (renameCancelButton) {
+        pendingRenameSlotIndex = null;
+        renderTitleMenu();
         return;
       }
       const deleteButton = event.target.closest("button[data-save-delete]");
       if (deleteButton && !deleteButton.disabled) {
-        deleteSaveSlot(Number(deleteButton.dataset.saveDelete));
+        pendingDeleteSlotIndex = Number(deleteButton.dataset.saveDelete);
+        pendingRenameSlotIndex = null;
+        renderTitleMenu();
+        return;
+      }
+      const deleteConfirmButton = event.target.closest("button[data-save-delete-confirm]");
+      if (deleteConfirmButton) {
+        deleteSaveSlot(Number(deleteConfirmButton.dataset.saveDeleteConfirm));
+        return;
+      }
+      const deleteCancelButton = event.target.closest("button[data-save-delete-cancel]");
+      if (deleteCancelButton) {
+        pendingDeleteSlotIndex = null;
+        renderTitleMenu();
+      }
+    });
+    saveSlotList.addEventListener("keydown", event => {
+      const input = event.target.closest("input[data-save-rename-input]");
+      if (!input) return;
+      if (event.key === "Enter") {
+        renameSaveSlot(Number(input.dataset.saveRenameInput), input.value);
+      }
+      if (event.key === "Escape") {
+        pendingRenameSlotIndex = null;
+        renderTitleMenu();
       }
     });
     pauseStatList.addEventListener("click", event => {

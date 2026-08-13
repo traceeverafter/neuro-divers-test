@@ -2943,9 +2943,14 @@
       return knockbackTargetFor(attacker, defender);
     }
 
+    function knockbackChanceFor(unit) {
+      const toughnessReduction = Math.max(0, unit.stats.toughness - 14) * 0.02;
+      return Math.max(0.2, KNOCKBACK_CHANCE - toughnessReduction);
+    }
+
     function maybeKnockback(attacker, defender) {
       const target = knockbackTargetFor(attacker, defender);
-      if (target === null || Math.random() >= KNOCKBACK_CHANCE) return false;
+      if (target === null || Math.random() >= knockbackChanceFor(defender)) return false;
       const blockChance = immovableBlockChance(defender);
       if (blockChance > 0 && Math.random() < blockChance) {
         addLog(`${defender.name}は不動でノックバックを無効化。`);
