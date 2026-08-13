@@ -3276,7 +3276,7 @@
       const hitRate = finalHitRateFor(attacker, attackData, defender);
       let rawDamage = rollAttackDamage(attacker, attackData, kind);
       if (damageMultiplier !== 1) rawDamage = Math.max(1, Math.floor(rawDamage * damageMultiplier));
-      if (hasStatus(attacker, "paralyze")) rawDamage = Math.max(1, Math.floor(rawDamage * PARALYZE_DAMAGE_MULTIPLIER));
+      if (kind === "melee" && hasStatus(attacker, "paralyze")) rawDamage = Math.max(1, Math.floor(rawDamage * PARALYZE_DAMAGE_MULTIPLIER));
       const reduction = toughnessReductionFor(defender, rawDamage);
       const damage = reduction.damage;
       const roll = Math.floor(Math.random() * 100) + 1;
